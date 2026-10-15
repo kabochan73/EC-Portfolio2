@@ -94,3 +94,12 @@
 - 7d config: `shop.php`（送料・閾値などの定数）/ `admin.php`（`?:` で空文字にも既定値）/ `services.php`（stripe・bff）/ `app.php`（`frontend_url`）
 - マイグレーションのファイル名は依存順に手動で `2026_10_15_1000xx` に揃える
 - 確認: `migrate:fresh` 全 16 本成功。部分 UNIQUE で色なし同サイズの 2 行目が拒否、`orders_status_check` で不正 status が拒否、CHECK 4 本・追加インデックスを psql で確認
+
+**Step 8 — 2026-10-15 Models + Factories + Seeders + Enum の Unit テスト**（6 コミットに分割。R3 は 29 ファイル 1 コミットで多すぎた）
+- 8a/8b Model 11 種（リレーション・スコープ・キャスト）。`User` の `sendPasswordResetNotification`（未作成のジョブを使う）はパスワードリセットの Step まで外す
+- 8c/8d Factory 10 種。R4 変更: `UserFactory` から `email_verified_at` を削除、`OrderFactory` の注文番号を JST・`completed()` state を追加（売上集計テスト用）
+  - テスト時の注意: `ProductVariantFactory` はサイズがランダム（同一商品に複数作るなら `sequence` / `size()` で明示）、`OrderFactory` の `total` と明細金額は独立、`SiteContentFactory` は `key()` 指定必須
+- 8e Seeder: Admin / Category(4) / SiteContent(4) / Product（**16 商品・57 バリアント**。R3 の rebuild-log の「14・48」は後で増えた最終版）。2 回流しても件数不変（冪等）
+- 8f `AppServiceProvider` に `preventLazyLoading` / `preventSilentlyDiscardingAttributes`（非本番）。Stripe・レート制限はその機能の Step で足す
+- Unit: `StockStatusTest`（境界。閾値 5）、`OrderStatusTransitionTest` は **R4 で 25 通り全組み合わせを検証する形に変更**（R3 は禁止遷移を手で列挙していて漏れに気づけない）
+- 確認: `migrate:fresh --seed` 成功、`php artisan test` 31 passed、tinker で遅延ロード時に `LazyLoadingViolationException` を確認
