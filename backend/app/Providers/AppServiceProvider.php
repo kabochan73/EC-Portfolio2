@@ -7,12 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // StripeService が受け取る StripeClient。secret key はここで注入する。
+        // キー未設定でも構築だけは通す（空文字ではなく [] を渡す）。実際の API 呼び出し前に
+        // CreatePaymentIntent が 503 を返す
+        $this->app->bind(StripeClient::class, function () {
+            $secret = (string) config('services.stripe.secret');
+
+            return new StripeClient($secret === '' ? [] : $secret);
+        });
     }
 
     public function boot(): void
@@ -41,7 +49,5 @@ class AppServiceProvider extends ServiceProvider
 
         // 注文作成（ユーザーごとに 5 回/分）。在庫の確保を連打で繰り返させない
         RateLimiter::for('orders', fn (Request $request) => Limit::perMinute(5)->by((string) $request->user()?->id));
-
-        // Stripe クライアントの登録は決済の Step（Step 20）で足す
     }
 }
