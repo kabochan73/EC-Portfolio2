@@ -50,7 +50,8 @@ return [
     |
     */
 
-    'expiration' => null,
+    // BFF の Cookie（frontend/lib/auth.ts・30日）と揃える。null だとトークンが永久に有効になる
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------

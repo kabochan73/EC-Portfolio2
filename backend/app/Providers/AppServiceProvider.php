@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,7 +25,18 @@ class AppServiceProvider extends ServiceProvider
         // fillable に無い属性を渡したとき、黙って捨てずに例外にする（打ち間違いに気づける）
         Model::preventSilentlyDiscardingAttributes(! $isProduction);
 
-        // Stripe クライアントの登録とレート制限（login / register / orders 等）は、
+        // ログイン試行のレート制限（メール + IP で 5 回/分）。routes で throttle:login。
+        // メールも鍵に入れるので、同じ IP から別アカウントを試すのは別枠（総当たりは 1 アカウントずつ抑える）
+        RateLimiter::for('login', function (Request $request) {
+            $email = (string) $request->input('email');
+
+            return Limit::perMinute(5)->by(mb_strtolower($email).'|'.$request->ip());
+        });
+
+        // 会員登録（IP で 5 回/分）。IP は BFF が渡す実クライアント IP（ResolveBffClientIp。Step 13c）
+        RateLimiter::for('register', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
+
+        // Stripe クライアントの登録と、残りのレート制限（password-reset / orders）は
         // それぞれの機能を作る Step で足す（R3 の最終形は ../EC-Portfolio を参照）。
     }
 }
