@@ -36,7 +36,10 @@ class AppServiceProvider extends ServiceProvider
         // 会員登録（IP で 5 回/分）。IP は BFF が渡す実クライアント IP（ResolveBffClientIp。Step 13c）
         RateLimiter::for('register', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
 
-        // Stripe クライアントの登録と、残りのレート制限（password-reset / orders）は
+        // パスワードリセットの送信・実行（IP で 6 回/分）。メール爆撃とトークン総当たりを抑える
+        RateLimiter::for('password-reset', fn (Request $request) => Limit::perMinute(6)->by($request->ip()));
+
+        // Stripe クライアントの登録と、注文作成のレート制限（orders）は
         // それぞれの機能を作る Step で足す（R3 の最終形は ../EC-Portfolio を参照）。
     }
 }

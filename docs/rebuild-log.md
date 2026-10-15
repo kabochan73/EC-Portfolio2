@@ -158,3 +158,15 @@
 - Feature テスト 10 本（R3 の 9 本 + DB が 2 件目の default を拒否する 1 本）
   - 詰まり: RefreshDatabase のトランザクション内で制約違反を起こすと、PostgreSQL は以降の SQL を全部拒否（`25P02 current transaction is aborted`）→ 失敗させる部分だけ `DB::transaction`（セーブポイント）で包む
 - 確認: tinker で作成 / default 指定 / 更新で昇格 / setDefault / default 削除のどの後も ★ は 1 件、Factory で直接 2 件目を入れると DB が拒否。`php artisan test` 88 passed
+
+**Step 16 — 2026-10-15 パスワードリセット**（2 コミット）
+- 16a Laravel `Password` broker を使い、通知だけ自前に差し替え（`User::sendPasswordResetNotification` → `SendPasswordResetJob`（payload は user_id と token のみ）→ `ResetPasswordMail`（Markdown））。**Mailable + Job（キュー）の初導入**
+  - キューのコードを変えたら `docker compose restart queue`（worker は起動時のコードを掴み続ける。R3 で踏んだ）
+  - メールのヘッダーが標準のまま（`EC-PORTFOLIO: http://localhost:8000`）。モノトーン化と合わせて注文メールの Step で直す
+- 16b `PasswordResetController`。`sendLink` は常に 200・中立メッセージ（アカウント存在を秘匿）。`reset` は `Password::reset`、成功で全トークン失効、失敗は 422 の `email` エラー。`throttle:password-reset`（IP で 6 回/分）。リンクはフロントの `/reset-password?token=&email=`、60 分有効
+- Feature テスト 9 本
+- E2E（scratchpad の bash スクリプト）: forgot は登録あり/なしで同じ応答・Mailpit 1 通 → メールのトークンで reset 成功 → 同じトークン再利用 422 → リセット前のログイントークン 401 → 新パスワードでログイン 200。`php artisan test` 97 passed
+  - 確認方法の罠: zsh の `echo` は JSON 中の `\uXXXX` を解釈して落ちる / macOS の bash 3.2 は空配列 + `set -u` でエラー
+
+### Phase 3 完了
+認証コア / BFF 実 IP / プロフィール / 住所録 / パスワードリセットが揃った。`php artisan test` 97 passed。次は Phase 4（注文 + Stripe 決済）。

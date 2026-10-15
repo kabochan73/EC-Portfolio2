@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Account\AddressController;
 use App\Http\Controllers\Api\Account\ProfileController;
 use App\Http\Controllers\Api\Auth\AuthController;
+use App\Http\Controllers\Api\Auth\PasswordResetController;
 use App\Http\Controllers\Api\Shop\CartController;
 use App\Http\Controllers\Api\Shop\CategoryController;
 use App\Http\Controllers\Api\Shop\ProductController;
@@ -38,6 +39,10 @@ Route::get('/cart/validate', [CartController::class, 'validate']);
 // --- 認証（公開） ---
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+// パスワードリセット（どちらも公開。送信は登録の有無に関係なく常に 200）
+Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:password-reset');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:password-reset');
 
 // --- 認証必須 ---
 Route::middleware('auth:sanctum')->group(function () {
