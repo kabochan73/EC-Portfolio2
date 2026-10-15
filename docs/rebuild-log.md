@@ -23,7 +23,7 @@
 
 ### 残タスク（やるかは後で判断）
 
-- Stripe API 呼び出し（返金など）が DB トランザクション内にある。返金成功後に DB がロールバックすると状態がずれる（`charge.refunded` Webhook で追認されるので致命的ではない）→ 返金に idempotency key を付ける
+- ~~Stripe API 呼び出し（返金など）が DB トランザクション内にある。返金成功後に DB がロールバックすると状態がずれる → 返金に idempotency key を付ける~~ → **Step 21 で対応済み**
 - `POST /api/orders` で「未決済注文のキャンセル」と「新規作成」が別トランザクション。二重送信で pending が 2 件残りうる（30 分で自動キャンセルされるので実害小）
 - 注文番号の同時採番で UNIQUE 違反 → 500。再試行していない（流量的に許容）
 
@@ -205,3 +205,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 追加**: 行ロックで二重作成を防ぐ（R3 はダブルクリック等で Stripe に PI が 2 つでき、payments の UNIQUE 違反で 500 になりえた）。偽の StripeService（作成に 2 秒）で 2 プロセス同時に呼び、1 つ目が作成・2 つ目は待って再利用・payments 1 行を確認
 - 20c `POST /api/checkout/payment-intent`（auth、他人の注文 404）。テストは `StripeService` をモック
 - Feature テスト 7 本。`php artisan test` 127 passed
+
+**Step 21 — 2026-10-15 Stripe Webhook + 注文確定 + 注文確認メール**（3 コミット + 見た目）
+- 21a `POST /api/stripe/webhook`（**認証なし・署名検証のみ・Sanctum の外**、`throttle:60,1`）。backend の唯一の公開エンドポイント。署名不正 400、`StripeEvent::claim` で冪等（重複 200 no-op、前回失敗の `processed_at` null は再処理可）、処理失敗は 500 で Stripe に再送させる。failed / canceled / refunded は Step 22
+  - `MarkOrderPaid`: `order_id` で `lockForUpdate`、`pending` 以外は no-op、payment=succeeded + charge_id、order=paid + paid_at。キャンセル済み注文への入金は自動で全額返金（安全網）
+  - **R4 変更**: 確認メールのジョブは `->afterCommit()`（キューを Redis 等に替えても paid 前に送られない）
+  - **R4 変更（残タスク ④ 解決）**: `StripeService::refund()` に `idempotency_key = refund-{PI}`。DB ロールバックでやり直しになっても二重返金しない
+- 21b `SendOrderConfirmationJob`（payload は order_id のみ）/ `OrderConfirmationMail`（Markdown、明細テーブル、`/account/orders/{番号}` へのリンク）
+- 21c `tests/Support/StripeFixtures`（疑似イベント生成）、Feature テスト 7 本 + Unit `StripeServiceTest`（返金に idempotency key が付く。キーを外すと落ちることを確認）
+- 確認: 不正署名 400 / tinker で MarkOrderPaid → paid・ジョブ 1 件、同じイベント 2 回目でもジョブは増えない / Mailpit に注文確認メール。`php artisan test` 135 passed
