@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Jobs\SendPasswordResetJob;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -44,6 +45,15 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;
+    }
+
+    /**
+     * パスワード再設定通知も自前 Mailable（docs/10-email.md）。Password broker から呼ばれる。
+     * 標準の Notification を使わず Job を積むのは、4 通のメールの見た目を Mailable で揃えるため
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        SendPasswordResetJob::dispatch($this->id, $token);
     }
 
     /** @return HasMany<Address, $this> */
