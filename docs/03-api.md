@@ -74,6 +74,8 @@ body ではなくクエリ or POST。`variant_id` の配列を渡し、各 varia
 ```
 存在しない / 非公開 variant は `available: false`。
 
+`max_quantity` = `min(stock, cart_max_quantity_per_line)`。**「公開 API は生の在庫数を返さない」方針の唯一の例外**で、在庫が上限（10）未満のときは正確な在庫数が分かる。数量セレクタの上限を実在庫に合わせ、「選べたのに注文時に在庫不足」を防ぐ買い物体験を優先した（R4 で明文化。2026-10-15 ユーザー判断）。
+
 ## 認証エンドポイント
 
 ### POST /api/register

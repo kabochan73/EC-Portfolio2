@@ -125,3 +125,12 @@
 - `ProductVariantResource` は公開用（`stock_status`/`stock_label`/`selectable`、生 stock は出さない）
 - Feature テスト 7 本
 - 確認: `ribbed-wool-beanie` で colors 3 色・在庫あり/残りわずか/SOLD OUT（selectable false）・related 3 件・size_chart null、不明 slug 404、`php artisan test` 48 passed
+
+**Step 12 — 2026-10-15 カート再検証 API**
+- `GET /api/cart/validate` … `?variant_ids[]` の配列を受け取り、各 variant の現在価格・`stock_status`・`max_quantity`（`min(stock, cart_max_quantity_per_line)`）・商品情報・主画像 URL を返す。存在しない/非公開商品の variant は `{ variant_id, available:false }`。リクエスト順を保持
+- 決定（ユーザー判断）: `max_quantity` は在庫 10 未満だと実在庫が分かるが、R3 のまま許容。「生の在庫数を返さない」方針の唯一の例外として `docs/03` に明記（買い物体験を優先）
+- Feature テスト 7 本
+- 確認: 在庫 12 → max 10（上限で頭打ち）、売り切れ → max 0、存在しない id → available false、順番保持、`php artisan test` 55 passed
+
+### Phase 2 完了
+公開カタログ API（categories / products 一覧・詳細 / cart-validate）が揃った。`php artisan test` 55 passed。次は Phase 3（認証 / 会員 / 住所 / パスワードリセット）。

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Shop\CartController;
 use App\Http\Controllers\Api\Shop\CategoryController;
 use App\Http\Controllers\Api\Shop\ProductController;
 use Illuminate\Support\Facades\DB;
@@ -27,3 +28,6 @@ Route::get('/health', function () {
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{slug}', [ProductController::class, 'show']);
+
+// カート明細の再検証（/cart・/checkout 表示時。docs/03-api.md）
+Route::get('/cart/validate', [CartController::class, 'validate']);
