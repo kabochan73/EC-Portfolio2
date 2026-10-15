@@ -109,3 +109,11 @@
 - 経路: `routes/api.php` → `Api\Shop\CategoryController@index` → `Shop\CategoryResource`。管理用は `Admin` 名前空間に別 Controller / Resource を作る
 - Feature テスト 3 本（position 順 / 露出項目 / 空リスト）
 - 確認: `curl localhost:8000/api/categories` で Seeder の 4 件が position 順、`php artisan test` 34 passed
+
+**Step 10 — 2026-10-15 公開商品一覧 API**
+- `GET /api/products` … `published()` のみ・position 順。`?category`（slug、exists 検証）/ `?new`（`Request::boolean` で `true/1/yes` を許容、新着順・30日以内）/ `?limit`（1〜100）
+- `ProductSummaryResource`（カード用項目のみ・生の在庫数は返さず全 variant 合算の `stock_status`）、`ProductImageResource`
+- `ProductController` は `index()` のみ（`show()` は Step 11）
+- 詰まり（R3）: `?new=true` を `boolean` ルールで検証すると文字列 `"true"` が 422 → `$request->boolean('new')` に
+- Feature テスト 7 本
+- 確認: `?category=accessories&limit=2` で 2 件、`?new=true` 200、`?category=nope` 422、`php artisan test` 41 passed

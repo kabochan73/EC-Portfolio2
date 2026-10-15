@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Shop\CategoryController;
+use App\Http\Controllers\Api\Shop\ProductController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -24,3 +25,4 @@ Route::get('/health', function () {
 
 // --- 商品閲覧（公開） ---
 Route::get('/categories', [CategoryController::class, 'index']);
+Route::get('/products', [ProductController::class, 'index']);
