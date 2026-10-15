@@ -70,3 +70,13 @@
 - R3 では scheduler は後から追加したが、R4 は最初から入れる（定期実行の中身は注文の Step で書く）
 - 確認: 2 つとも healthy。`Artisan::queue('inspire')` で積んだジョブを queue が処理（DONE、jobs 0 件・failed 0 件）
   - tinker から積んだクロージャのジョブは「eval されたコードはシリアライズできない」ため失敗する。queue の不具合ではない（確認方法の問題）
+
+**Step 6 — 2026-10-15 Pest 導入 + BFF 疎通**
+- 6a backend: `pestphp/pest`（3.8）+ `pest-plugin-laravel`（3.2）。`tests/Pest.php`（Feature に `RefreshDatabase`、Unit は TestCase のみ）
+- **テストは実 Postgres（`ecp_test`）で回す**（sqlite では partial unique index / jsonb / CHECK を再現できない。R2 の反省）。`phpunit.xml` を pgsql・`ecp_test` に
+- `tests/Feature/Health/HealthTest.php`。Example テスト 2 本は削除（`tests/Unit/.gitkeep` でディレクトリを残す。phpunit.xml の Unit スイートが参照するため）
+- 6b frontend: `lib/api.ts`（`apiFetch` / `ApiError` / `apiErrorResponse`、サーバー専用）は **R3 の最終版**を採用（Step 6 時点の版は `cache: 'no-store'` を常に付けていて、後で ISR タグと衝突するバグがあった）。`app/bff/health/route.ts`（上流エラー 502）
+- 確認: `php artisan test` → 1 passed（`ecp_test` に migrations 4 件 = テスト DB で実行）、`curl localhost:3000/bff/health` → `database ok`、backend を止めると 502、`tsc` / `lint` / `pint` パス
+
+### 環境構築フェーズ 完了（Step 1〜6）
+`docker compose up -d` だけで「ブラウザ → Next.js → Laravel → PostgreSQL」＋ RustFS / Mailpit / queue / scheduler が動く。次から機能実装（DB マイグレーション → 公開カタログ API…）。
