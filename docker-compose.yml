@@ -3,8 +3,8 @@
 # （docs/07-local-dev.md）。一度に全部は作らず、段階的に足していく:
 #
 #   Step 2 : db / rustfs / mailpit だけ。まず土台の疎通を確認する
-#   Step 3 : backend（serversideup/php）を追加  ← いまここ
-#   Step 4 : frontend（next dev）を追加
+#   Step 3 : backend（serversideup/php）を追加
+#   Step 4 : frontend（next dev）を追加  ← いまここ
 #   Step 5 : queue worker / scheduler を追加
 #
 # コンテナ名は ecp4-*（R3 の ecp-* とぶつからないように）。
@@ -112,6 +112,31 @@ services:
       mailpit:
         condition: service_started
 
+  # ── frontend（Next.js / next dev）───────────────────────────
+  # ブラウザが触れる唯一のサーバー（BFF）。ソースをマウントしてホットリロード。
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: ecp4-frontend
+    volumes:
+      - ./frontend:/app
+      # node_modules はホストと共有しない（Mac と Linux でネイティブバイナリが違う・遅い）。
+      # 名前付きボリュームに隔離する。ホストの node_modules は IDE 補完用に別途 npm ci
+      - ecp4-frontend-node_modules:/app/node_modules
+      # .next のビルドキャッシュもコンテナ内に閉じる
+      - ecp4-frontend-next:/app/.next
+    environment:
+      # Mac の Docker Desktop はファイル変更検知が効かないことがあるので polling を有効化
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    env_file: ./frontend/.env.local
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+      - rustfs
+
   # ── Mailpit（ローカルの SMTP 受信箱）──────────────────────
   # 送信したメールはすべてここで受信し、Web UI（http://localhost:8025）で確認する。
   # 実際には誰にも届かない。本番は Resend（docs/10-email.md）。
@@ -130,3 +155,5 @@ services:
 volumes:
   ecp4-pgdata:
   ecp4-rustfs:
+  ecp4-frontend-node_modules:
+  ecp4-frontend-next:

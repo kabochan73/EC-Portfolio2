@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files（秘密情報。example だけコミットする）
 .env*
+!.env.example
 
 # vercel
 .vercel
