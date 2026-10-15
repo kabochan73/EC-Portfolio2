@@ -150,3 +150,11 @@
 - 14a `UpdateProfile`（氏名・メール。R3 の「メール変更で認証やり直し」は撤去済みなので無し）/ `UpdatePassword`（変更した端末のトークンだけ残し、他は失効）/ `UpdateProfileRequest`（`unique->ignore(self)`）/ `UpdatePasswordRequest`（`current_password` + `different:current_password` + `Password::min(8)`）
 - 14b `ProfileController@update` / `updatePassword`、ルート、Feature テスト 9 本
 - 確認: curl で同じ管理者に 2 端末ログイン → A でパスワード変更 204 → A は 200・B は 401、新パスワードでログイン可。`php artisan test` 78 passed
+
+**Step 15 — 2026-10-15 住所録 CRUD**（2 コミット）
+- `/api/addresses` の index / store / update / destroy / setDefault。ルートは **`Route::apiResource('addresses', ...)->except(['show'])` + setDefault だけ個別**（R4 でユーザー提案。R3 は 5 本を手書き。PATCH も受けるようになる）。Request も **`AddressRequest` 1 つに統合**（R3 の Store / Update はクラス名以外まったく同じだった。ルールが分かれたら分ける）。他人の address id は 404 で存在を秘匿。`postal_code` は `123-4567` 形式
+- **R4 変更（ユーザー判断 A）**: 「default はユーザーごとに 1 件」を部分 UNIQUE `addresses_one_default_per_user ON (user_id) WHERE is_default` で DB でも保証。`CreateAddress` / `UpdateAddress` を「先に他を false → 対象を true」の順に入れ替え（R3 は逆順で、このインデックスがあると違反する）
+- default 削除時は残りの直近 1 件を昇格、既存 default を `is_default=false` 指定では外さない（常に 1 件）
+- Feature テスト 10 本（R3 の 9 本 + DB が 2 件目の default を拒否する 1 本）
+  - 詰まり: RefreshDatabase のトランザクション内で制約違反を起こすと、PostgreSQL は以降の SQL を全部拒否（`25P02 current transaction is aborted`）→ 失敗させる部分だけ `DB::transaction`（セーブポイント）で包む
+- 確認: tinker で作成 / default 指定 / 更新で昇格 / setDefault / default 削除のどの後も ★ は 1 件、Factory で直接 2 件目を入れると DB が拒否。`php artisan test` 88 passed

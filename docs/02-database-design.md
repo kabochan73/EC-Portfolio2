@@ -168,10 +168,10 @@ R2 から不変。
 | address_line1 | varchar(255) | |
 | address_line2 | varchar(255) | nullable |
 | phone | varchar(20) | |
-| is_default | boolean | default false。ユーザーごと最大1件 true（アプリ側で担保） |
+| is_default | boolean | default false。ユーザーごと最大1件 true（Action で担保 + 部分 UNIQUE で DB も保証。R4） |
 | created_at / updated_at | timestamp | |
 
-インデックス: `user_id`
+インデックス: `user_id`、部分 UNIQUE `addresses_one_default_per_user ON (user_id) WHERE is_default`（R4 追加）。Action は「先に他を false → 対象を true」の順で更新する（逆順だと一瞬 2 件になり違反）
 
 ---
 

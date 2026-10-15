@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Account\AddressController;
 use App\Http\Controllers\Api\Account\ProfileController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Shop\CartController;
@@ -45,4 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [ProfileController::class, 'show']);
     Route::put('/me', [ProfileController::class, 'update']);
     Route::put('/me/password', [ProfileController::class, 'updatePassword']);
+
+    // --- 住所録（本人のもののみ。他人の ID は 404） ---
+    // apiResource = index / store / show / update / destroy の 5 本を規約どおりに一括登録。
+    // 1 件取得（show）は画面で使わないので外す。CRUD に収まらない「default に設定」だけ個別に足す
+    Route::apiResource('addresses', AddressController::class)->except(['show']);
+    Route::post('/addresses/{address}/default', [AddressController::class, 'setDefault']);
 });
