@@ -145,3 +145,8 @@
 - Feature テスト 14 本（Auth 12 + BFF IP 2）
 - 確認: curl で register → me → logout 204 → me 401、`php artisan test` 69 passed
 - 注意: zsh では `H='-H a -H b'; curl $H` が分割されず nginx 400 になる（確認方法の問題）
+
+**Step 14 — 2026-10-15 プロフィール更新（PUT /me, /me/password）**（2 コミット）
+- 14a `UpdateProfile`（氏名・メール。R3 の「メール変更で認証やり直し」は撤去済みなので無し）/ `UpdatePassword`（変更した端末のトークンだけ残し、他は失効）/ `UpdateProfileRequest`（`unique->ignore(self)`）/ `UpdatePasswordRequest`（`current_password` + `different:current_password` + `Password::min(8)`）
+- 14b `ProfileController@update` / `updatePassword`、ルート、Feature テスト 9 本
+- 確認: curl で同じ管理者に 2 端末ログイン → A でパスワード変更 204 → A は 200・B は 401、新パスワードでログイン可。`php artisan test` 78 passed
