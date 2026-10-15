@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Shop\CategoryController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -20,3 +21,6 @@ Route::get('/health', function () {
         'time' => now()->toIso8601String(),
     ]);
 });
+
+// --- 商品閲覧（公開） ---
+Route::get('/categories', [CategoryController::class, 'index']);

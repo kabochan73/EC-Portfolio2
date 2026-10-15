@@ -103,3 +103,9 @@
 - 8f `AppServiceProvider` に `preventLazyLoading` / `preventSilentlyDiscardingAttributes`（非本番）。Stripe・レート制限はその機能の Step で足す
 - Unit: `StockStatusTest`（境界。閾値 5）、`OrderStatusTransitionTest` は **R4 で 25 通り全組み合わせを検証する形に変更**（R3 は禁止遷移を手で列挙していて漏れに気づけない）
 - 確認: `migrate:fresh --seed` 成功、`php artisan test` 31 passed、tinker で遅延ロード時に `LazyLoadingViolationException` を確認
+
+**Step 9 — 2026-10-15 公開カテゴリ API**
+- `GET /api/categories` … `Category::ordered()->get()` を `Shop\CategoryResource`（`{id,name,slug}` のみ）
+- 経路: `routes/api.php` → `Api\Shop\CategoryController@index` → `Shop\CategoryResource`。管理用は `Admin` 名前空間に別 Controller / Resource を作る
+- Feature テスト 3 本（position 順 / 露出項目 / 空リスト）
+- 確認: `curl localhost:8000/api/categories` で Seeder の 4 件が position 順、`php artisan test` 34 passed
