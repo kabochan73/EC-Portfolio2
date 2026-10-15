@@ -15,8 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
+            // email_verified_at は作らない（メール認証は実装しない。R3 は後から drop した。docs/rebuild-log.md）
             $table->string('password');
+            // customer / admin。管理画面（/api/admin/*）の認可に使う（docs/05-admin.md）
+            $table->string('role', 20)->default('customer');
             $table->rememberToken();
             $table->timestamps();
         });
