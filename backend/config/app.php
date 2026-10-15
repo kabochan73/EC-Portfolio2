@@ -54,6 +54,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // BFF のフロント（Next.js）。メール内リンク・CORS 許可元の base に使う
+    // （docs/08 §4 / docs/10-email.md）。
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

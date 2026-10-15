@@ -18,6 +18,8 @@
 | 2 | ログインでユーザー不在時に `Hash::check` を飛ばす（応答時間の差でメール登録有無が推測できる。コメントと実装が不一致） | 不在時もダミーハッシュで `Hash::check` | 03 |
 | 3 | 注文作成の在庫ロック順が不定（デッドロックの可能性） | `orderBy('id')->lockForUpdate()` | 02 |
 | 4 | 売上集計用のインデックスが無い | `orders(status, paid_at)` を追加 | 02 |
+| 5 | FK にインデックスが無い（PostgreSQL は自動で張らない）。docs には `products.category_id` ありと書いてあった | `products.category_id` / `order_items.order_id` に追加 | 02 |
+| 6 | `config/admin.php` の `env('ADMIN_EMAIL', 既定値)` は `.env` に空で書いてあると空文字になり既定値に落ちない | `env('ADMIN_EMAIL') ?: 既定値` | — |
 
 ### 残タスク（やるかは後で判断）
 
@@ -80,3 +82,15 @@
 
 ### 環境構築フェーズ 完了（Step 1〜6）
 `docker compose up -d` だけで「ブラウザ → Next.js → Laravel → PostgreSQL」＋ RustFS / Mailpit / queue / scheduler が動く。次から機能実装（DB マイグレーション → 公開カタログ API…）。
+
+## 機能実装フェーズ（バックエンド）
+
+### Phase 2 — DB / モデル / 公開カタログ API（Step 7〜12）
+
+**Step 7 — 2026-10-15 DB マイグレーション + Enums + config**（4 コミットに分割）
+- 7a カタログ: users（Laravel 生成ファイルを直接修正。`email_verified_at` を作らず `role` を追加。R3 の add / drop の 2 本を 1 本に）/ categories / products / product_images / product_variants（NULL 複合 UNIQUE の罠を部分 UNIQUE 2 本立てで回避）
+- 7b 注文: addresses / orders（`(status, paid_at)` で status 単独を置き換え）/ order_items（`order_id` インデックス追加）/ payments / stripe_events
+- 7c site_contents + Enums（`UserRole` / `StockStatus` / `OrderStatus`）+ `products.category_id` インデックス
+- 7d config: `shop.php`（送料・閾値などの定数）/ `admin.php`（`?:` で空文字にも既定値）/ `services.php`（stripe・bff）/ `app.php`（`frontend_url`）
+- マイグレーションのファイル名は依存順に手動で `2026_10_15_1000xx` に揃える
+- 確認: `migrate:fresh` 全 16 本成功。部分 UNIQUE で色なし同サイズの 2 行目が拒否、`orders_status_check` で不正 status が拒否、CHECK 4 本・追加インデックスを psql で確認
