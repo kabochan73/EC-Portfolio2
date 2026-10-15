@@ -117,3 +117,11 @@
 - 詰まり（R3）: `?new=true` を `boolean` ルールで検証すると文字列 `"true"` が 422 → `$request->boolean('new')` に
 - Feature テスト 7 本
 - 確認: `?category=accessories&limit=2` で 2 件、`?new=true` 200、`?category=nope` 422、`php artisan test` 41 passed
+- 決定: バリデーションは R3 と同じ層分担（書き込み系 = FormRequest、GET クエリ = インライン `$request->validate()`。`docs/06` §11）を維持
+
+**Step 11 — 2026-10-15 公開商品詳細 API**
+- `GET /api/products/{slug}` … `published()` のみ、未公開・不明 slug は 404（403 にすると存在が漏れる）
+- `ProductDetailResource`（description/material/care/origin/product_code/size_chart/images/colors/variants/related）。`colors` は色付き variant の重複除去。`related` は同カテゴリの他の公開商品を position 順に全件（`setRelation('relatedProducts', ...)` で差し込む）
+- `ProductVariantResource` は公開用（`stock_status`/`stock_label`/`selectable`、生 stock は出さない）
+- Feature テスト 7 本
+- 確認: `ribbed-wool-beanie` で colors 3 色・在庫あり/残りわずか/SOLD OUT（selectable false）・related 3 件・size_chart null、不明 slug 404、`php artisan test` 48 passed
