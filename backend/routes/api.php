@@ -61,5 +61,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- 注文 ---
     // メール認証は不要（ポートフォリオ用途で誰でも購入体験できるようにしている）
-    Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:orders');
+    // apiResource で index / store / show。{order} は注文番号（Order::getRouteKeyName）。
+    // 作成だけレート制限をかけるので、store には middleware を個別に付ける
+    Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show'])
+        ->middlewareFor('store', 'throttle:orders');
 });

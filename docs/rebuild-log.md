@@ -192,3 +192,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 18c `OrderController@store`、`throttle:orders`（ユーザーごとに 5 回/分）。メール認証は不要。未決済注文の置き換え（CancelSupersededOrders）は Stripe 連携が要るので Step 22
 - Feature テスト 10 本
 - 確認: 在庫不足（999 個）で例外 → 注文 0 件増・在庫そのまま（全部ロールバック）。`php artisan test` 114 passed
+
+**Step 19 — 2026-10-15 注文取得 API**
+- `GET /api/orders` … `forUser` + `withSum('items as items_quantity_total','quantity')` + `recentFirst`、`OrderListResource`（`item_count` は quantity 合計）
+- `GET /api/orders/{order}` … 本人のみ、他人・不明は 404、`items.product:id,slug` + `payment` を eager load
+- **R4 変更**: ルートを `Route::apiResource('orders', ...)->only(['index','store','show'])->middlewareFor('store','throttle:orders')` に。show は文字列の注文番号で検索する代わりに **ルートモデルバインディング**（`getRouteKeyName()` = `order_number`）+ 本人チェック（住所録と同じ形）。throttle が store だけに付くことを `gatherMiddleware()` で確認
+- Feature テスト 6 本。`php artisan test` 120 passed
