@@ -1,0 +1,38 @@
+# ── OS / エディタ ──────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ── 環境変数（秘密情報。example だけコミットする） ──
+.env
+.env.*
+!.env.example
+
+# ── Node / Next.js（frontend/ 配下） ───────────
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# ── PHP / Laravel（backend/ 配下） ────────────
+/backend/vendor/
+/backend/storage/*.key
+/backend/storage/framework/cache/data/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/views/*
+/backend/storage/logs/*
+/backend/bootstrap/cache/*.php
+/backend/public/storage
+/backend/.phpunit.cache
+
+# ── Docker のローカルデータ（named volume を使うので通常は出ないが保険） ──
+/.docker-data/
+
+# ── ログ・一時ファイル ───────────────────────
+*.log
+coverage/
+.phpunit.result.cache
