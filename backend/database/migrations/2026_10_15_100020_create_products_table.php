@@ -25,6 +25,8 @@ return new class extends Migration
             $table->integer('position')->default(0);
             $table->timestamps();
 
+            // category_id は FK だが PostgreSQL は自動でインデックスを張らない（R4 で docs に合わせて追加）
+            $table->index('category_id');
             $table->index(['is_published', 'position']);
         });
 
