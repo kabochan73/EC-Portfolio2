@@ -1,0 +1,272 @@
+/* EC-PORTFOLIO — 硬質なミニマル・モノトーン（docs/00 / docs/10-email.md）
+   配色は 4 色のみ: #000 / #fff / #f4f4f4 / #767676。区切りはボーダー。影は使わない。 */
+
+/* Base */
+body,
+body *:not(html):not(style):not(br):not(tr):not(code) {
+  box-sizing: border-box;
+  font-family: -apple-system, "Helvetica Neue", "Hiragino Sans", "Noto Sans JP", Arial, sans-serif;
+  position: relative;
+}
+
+body {
+  -webkit-text-size-adjust: none;
+  background-color: #f4f4f4;
+  color: #000000;
+  height: 100%;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+  width: 100% !important;
+}
+
+p,
+ul,
+ol,
+blockquote {
+  line-height: 1.6;
+  text-align: left;
+}
+
+a {
+  color: #000000;
+  text-decoration: underline;
+}
+
+a img {
+  border: none;
+}
+
+/* Typography */
+h1 {
+  color: #000000;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 0;
+  text-align: left;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 0;
+  text-align: left;
+}
+
+h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 0;
+  text-align: left;
+}
+
+p {
+  color: #000000;
+  font-size: 15px;
+  line-height: 1.6em;
+  margin-top: 0;
+  text-align: left;
+}
+
+p.sub {
+  font-size: 12px;
+  color: #767676;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* Layout */
+.wrapper {
+  -premailer-cellpadding: 0;
+  -premailer-cellspacing: 0;
+  -premailer-width: 100%;
+  background-color: #f4f4f4;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.content {
+  -premailer-cellpadding: 0;
+  -premailer-cellspacing: 0;
+  -premailer-width: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* Header */
+.header {
+  padding: 28px 0;
+  text-align: center;
+}
+
+.header a {
+  color: #000000;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+/* Body */
+.body {
+  -premailer-cellpadding: 0;
+  -premailer-cellspacing: 0;
+  -premailer-width: 100%;
+  background-color: #ffffff;
+  border-top: 1px solid #000000;
+  border-bottom: 1px solid #000000;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.inner-body {
+  -premailer-cellpadding: 0;
+  -premailer-cellspacing: 0;
+  -premailer-width: 600px;
+  background-color: #ffffff;
+  margin: 0 auto;
+  padding: 0;
+  width: 600px;
+}
+
+/* Subcopy */
+.subcopy {
+  border-top: 1px solid #f4f4f4;
+  margin-top: 28px;
+  padding-top: 20px;
+}
+
+.subcopy p {
+  font-size: 13px;
+  color: #767676;
+}
+
+/* Footer */
+.footer {
+  -premailer-cellpadding: 0;
+  -premailer-cellspacing: 0;
+  -premailer-width: 600px;
+  margin: 0 auto;
+  padding: 0;
+  text-align: center;
+  width: 600px;
+}
+
+.footer p {
+  color: #767676;
+  font-size: 12px;
+  text-align: center;
+}
+
+.footer a {
+  color: #767676;
+  text-decoration: underline;
+}
+
+/* Tables */
+.table table {
+  -premailer-cellpadding: 0;
+  -premailer-cellspacing: 0;
+  -premailer-width: 100%;
+  margin: 24px auto;
+  width: 100%;
+}
+
+.table th {
+  border-bottom: 1px solid #000000;
+  padding-bottom: 8px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.table td {
+  color: #000000;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px 0;
+  border-bottom: 1px solid #f4f4f4;
+  margin: 0;
+}
+
+.content-cell {
+  max-width: 100vw;
+  padding: 36px;
+}
+
+/* Buttons */
+.action {
+  -premailer-cellpadding: 0;
+  -premailer-cellspacing: 0;
+  -premailer-width: 100%;
+  margin: 32px auto;
+  padding: 0;
+  text-align: center;
+  width: 100%;
+}
+
+.button {
+  -webkit-text-size-adjust: none;
+  border-radius: 0;
+  color: #ffffff !important;
+  display: inline-block;
+  overflow: hidden;
+  text-decoration: none;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.button-primary,
+.button-success,
+.button-error {
+  background-color: #000000;
+  border: 1px solid #000000;
+}
+
+.button-primary *,
+.button-success *,
+.button-error * {
+  color: #ffffff !important;
+}
+
+/* Panels */
+.panel {
+  border-left: none;
+  margin: 21px 0;
+}
+
+.panel-content {
+  background-color: #f4f4f4;
+  border: 1px solid #000000;
+  padding: 16px;
+}
+
+.panel-content p {
+  color: #000000;
+}
+
+.panel-item {
+  padding: 0;
+}
+
+.panel-item p:last-of-type {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* Utilities */
+.break-all {
+  word-break: break-all;
+}

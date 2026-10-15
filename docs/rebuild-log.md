@@ -162,7 +162,7 @@
 **Step 16 — 2026-10-15 パスワードリセット**（2 コミット）
 - 16a Laravel `Password` broker を使い、通知だけ自前に差し替え（`User::sendPasswordResetNotification` → `SendPasswordResetJob`（payload は user_id と token のみ）→ `ResetPasswordMail`（Markdown））。**Mailable + Job（キュー）の初導入**
   - キューのコードを変えたら `docker compose restart queue`（worker は起動時のコードを掴み続ける。R3 で踏んだ）
-  - メールのヘッダーが標準のまま（`EC-PORTFOLIO: http://localhost:8000`）。モノトーン化と合わせて注文メールの Step で直す
+  - メールのヘッダーが標準のまま（`EC-PORTFOLIO: http://localhost:8000`）→ Step 21d で直した
 - 16b `PasswordResetController`。`sendLink` は常に 200・中立メッセージ（アカウント存在を秘匿）。`reset` は `Password::reset`、成功で全トークン失効、失敗は 422 の `email` エラー。`throttle:password-reset`（IP で 6 回/分）。リンクはフロントの `/reset-password?token=&email=`、60 分有効
 - Feature テスト 9 本
 - E2E（scratchpad の bash スクリプト）: forgot は登録あり/なしで同じ応答・Mailpit 1 通 → メールのトークンで reset 成功 → 同じトークン再利用 422 → リセット前のログイントークン 401 → 新パスワードでログイン 200。`php artisan test` 97 passed
@@ -214,3 +214,4 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 21b `SendOrderConfirmationJob`（payload は order_id のみ）/ `OrderConfirmationMail`（Markdown、明細テーブル、`/account/orders/{番号}` へのリンク）
 - 21c `tests/Support/StripeFixtures`（疑似イベント生成）、Feature テスト 7 本 + Unit `StripeServiceTest`（返金に idempotency key が付く。キーを外すと落ちることを確認）
 - 確認: 不正署名 400 / tinker で MarkOrderPaid → paid・ジョブ 1 件、同じイベント 2 回目でもジョブは増えない / Mailpit に注文確認メール。`php artisan test` 135 passed
+- 21d メールの見た目: `resources/views/vendor/mail/html/themes/default.css` を R3 のモノトーン版に（4 色のみ・影なし）。`vendor/mail/{html,text}/message.blade.php` を上書きし、ヘッダーのリンクを `app.url`（backend）→ `app.frontend_url` に（**R3 は backend の URL のままだった**。BFF 構成では backend はブラウザから見えない）。Mailpit でヘッダーが `http://localhost:3000`・背景 `#f4f4f4` を確認
