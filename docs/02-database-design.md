@@ -198,7 +198,7 @@ R2 から不変。
 | ship_phone | varchar(20) | |
 | created_at / updated_at | timestamp | |
 
-住所は注文時点の値をコピー保持。インデックス: `user_id`, `order_number`, `status`, **`(status, paid_at)`**（R4 追加。売上ダッシュボードの「売上対象ステータス × 期間」の集計用。`docs/05-admin.md`）
+住所は注文時点の値をコピー保持。インデックス: `user_id`, `order_number`, **`(status, paid_at)`**（R4 追加。売上ダッシュボードの「売上対象ステータス × 期間」の集計用。`docs/05-admin.md`）。複合インデックスは先頭列だけの検索にも使えるので、R3 の `status` 単独インデックスはこれに置き換えた
 
 タイムゾーン: アプリ（`config/app.php`）も DB も **UTC で保存**する。日本時間が必要な所（注文番号の日付・売上ダッシュボードの日/月の区切り）だけ、計算時に `Asia/Tokyo` に変換する（R4 で明文化）。
 
@@ -256,6 +256,8 @@ R2 から不変。
 | quantity | integer | CHECK (quantity > 0) |
 | line_total | integer | unit_price * quantity |
 | created_at / updated_at | timestamp | |
+
+インデックス: `order_id`（R4 追加。PostgreSQL は FK に自動でインデックスを張らないため。注文明細の取得と売上ランキングの結合で使う）
 
 ---
 
