@@ -134,3 +134,14 @@
 
 ### Phase 2 完了
 公開カタログ API（categories / products 一覧・詳細 / cart-validate）が揃った。`php artisan test` 55 passed。次は Phase 3（認証 / 会員 / 住所 / パスワードリセット）。
+
+### Phase 3 — 認証 / 会員 / 住所 / パスワードリセット（Step 13〜16。メール認証は作らない）
+
+**Step 13 — 2026-10-15 認証コア（register / login / logout / me）+ BFF 実 IP**（3 コミット）
+- 13a `RegisterUser`（role は Customer 固定）/ `AuthenticateUser` / `RegisterRequest` / `LoginRequest` / `UserResource`
+  - **R4 修正 #2**: ユーザー不在時もダミーハッシュ（cost 12）で `Hash::check`。tinker 実測でパスワード違い 289ms / 未登録 267ms（R3 は未登録だと照合を飛ばして即返っていた）
+- 13b `AuthController`（register 201 / login 200 は `{ data, token }`、logout 204 は現トークンのみ削除）/ `ProfileController@show` / `throttle:login`（メール小文字 + IP で 5 回/分）・`throttle:register`（IP で 5 回/分）/ `sanctum.expiration` 30 日（null だと永久に有効）
+- 13c `ResolveBffClientIp`（グローバル middleware。`X-BFF-Secret` が一致したときだけ `X-Client-IP` を `REMOTE_ADDR` に）。テストは R3 の forgot-password 版から register 版に書き換え（パスワードリセットは Step 16）
+- Feature テスト 14 本（Auth 12 + BFF IP 2）
+- 確認: curl で register → me → logout 204 → me 401、`php artisan test` 69 passed
+- 注意: zsh では `H='-H a -H b'; curl $H` が分割されず nginx 400 になる（確認方法の問題）

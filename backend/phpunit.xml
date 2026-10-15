@@ -34,6 +34,8 @@
         <env name="DB_PASSWORD" value="ecpsecret"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- ResolveBffClientIp のテスト用。一致したときだけ X-Client-IP を信用する -->
+        <env name="BFF_SHARED_SECRET" value="bff_test_secret"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
