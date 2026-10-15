@@ -23,8 +23,15 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- テストは実 Postgres で回す（partial unique index / jsonb / CHECK 制約を
+             忠実に検証するため。sqlite では再現できない。docs/12-testing.md）。
+             開発 DB(ecp) とは別の ecp_test を使う（RefreshDatabase が作り直す）。 -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="db"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="ecp_test"/>
+        <env name="DB_USERNAME" value="ecp"/>
+        <env name="DB_PASSWORD" value="ecpsecret"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
