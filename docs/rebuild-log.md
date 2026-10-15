@@ -34,3 +34,14 @@
 - `05-admin.md` / `03-api.md`: 「売上は表示しない」を撤回し、売上ダッシュボードの仕様と `GET /api/admin/sales` を追加。ランキングは販売個数順（前月比も個数）、グラフはライブラリなしで自作
 - `08-frontend-design.md` / `00-overview.md`: TanStack Query の使用箇所を R3 の実装に合わせて修正。`/admin` は全部 CSR に統一せず「読み取り = Server Component、操作 = Client Component」を維持（理由は 08 §3.4）
 - `02-database-design.md` / `03-api.md`: R3 バックエンドレビューの修正 1〜4 を反映（上の表）
+- 決定: コードは Claude が書き、ユーザーがレビュー（1 コミット 5 ファイル前後）。Railway デプロイは最後（R3 本番は比較用に残す）
+
+## 環境構築フェーズ（Step 1〜6）
+
+**Step 1 — 2026-10-15 リポジトリ骨組み**
+- `git init`（`main`）。docs をコミット（`64b616b`）→ `.gitignore` / `.editorconfig` / `.nvmrc`（R3 と同じ）+ R4 用 `README.md`（`ca7f169`）
+
+**Step 2 — 2026-10-15 ローカルインフラ（db / rustfs / mailpit）**
+- `docker-compose.yml`: `db`（postgres:16-alpine、`ecp`）/ `rustfs` + `createbuckets`（`ec-portfolio-media` を private で自動作成）/ `mailpit`。コンテナ・ボリューム名は `ecp4-*`
+- `backend/database/init/01-create-test-db.sql`（テスト DB `ecp_test`）を R3 の Step 6 から前倒し。DB の初回起動時にしか実行されないため最初から置く
+- backend / frontend / queue / scheduler は Step 3 以降で段階的に追加

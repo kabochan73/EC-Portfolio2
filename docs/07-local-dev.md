@@ -16,10 +16,13 @@
 | `frontend` | `frontend/Dockerfile.dev`（node:22-alpine） | `next dev`（ホットリロード） | `3000` |
 | `backend` | `serversideup/php:8.4-fpm-nginx` | Laravel。nginx + php-fpm。artisan の実行先 | `8000`（→ 8080） |
 | `queue` | `serversideup/php:8.4-fpm-nginx`（`command` 上書き） | `php artisan queue:work`。メール送信ジョブを処理 | なし |
+| `scheduler` | `serversideup/php:8.4-fpm-nginx`（`command` 上書き） | `php artisan schedule:work`。未決済注文の期限切れキャンセル等（R3 後期に追加） | なし |
 | `db` | `postgres:16-alpine` | PostgreSQL 16 | `5432` |
 | `rustfs` | `rustfs/rustfs` | S3 互換ストレージ（旧 MinIO。公式イメージが取得不可になり 2026-10 に置き換え） | `9000` / `9001`（コンソールは `/rustfs/console/`） |
 | `createbuckets` | `amazon/aws-cli` | 起動時に一度だけ `ec-portfolio-media` を作る使い捨て | なし |
 | `mailpit` | `axllent/mailpit` | ローカルの SMTP 受信箱。送信メールをここで確認（**R3 追加**） | `8025`（Web UI） |
+
+コンテナ名は `ecp4-<サービス名>`、ボリュームは `ecp4-*`（R4。R3 の `ecp-*` と衝突させない）。公開ポートは R3 と同じなので、**R4 を起動する前に R3 を `docker compose down` する**。
 
 ### 通信経路
 
@@ -46,7 +49,7 @@ Stripe Webhook（ローカル）:
 ```yaml
 queue:
   image: serversideup/php:8.4-fpm-nginx
-  container_name: ecp-queue
+  container_name: ecp4-queue
   command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3", "--max-time=3600"]
   volumes:
     - ./backend:/var/www/html
@@ -67,7 +70,7 @@ queue:
 ```yaml
 mailpit:
   image: axllent/mailpit:latest
-  container_name: ecp-mailpit
+  container_name: ecp4-mailpit
   ports:
     - "8025:8025"   # Web UI（http://localhost:8025）
   environment:

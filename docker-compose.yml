@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────────
+# ローカル開発環境。frontend / backend / queue も含めて「全部 Docker」
+# （docs/07-local-dev.md）。一度に全部は作らず、段階的に足していく:
+#
+#   Step 2 : db / rustfs / mailpit だけ。まず土台の疎通を確認する  ← いまここ
+#   Step 3 : backend（serversideup/php）を追加
+#   Step 4 : frontend（next dev）を追加
+#   Step 5 : queue worker / scheduler を追加
+#
+# コンテナ名は ecp4-*（R3 の ecp-* とぶつからないように）。
+# ポートは R3 と同じなので、R4 を起動する前に R3 を止めること。
+#
+# 使い方:
+#   docker compose up -d        # 起動
+#   docker compose down         # 停止（データは volume に残る）
+#   docker compose down -v      # データごと破棄
+# ─────────────────────────────────────────────────────────────
+
+services:
+  # ── PostgreSQL ───────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: ecp4-db
+    environment:
+      # backend/.env の DB_DATABASE / DB_USERNAME / DB_PASSWORD と一致させること
+      POSTGRES_DB: ecp
+      POSTGRES_USER: ecp
+      POSTGRES_PASSWORD: ecpsecret
+    ports:
+      # ホスト側 5432 → コンテナ 5432。ホスト（TablePlus 等）から localhost:5432 で覗ける
+      - "5432:5432"
+    volumes:
+      - ecp4-pgdata:/var/lib/postgresql/data
+      # 初回起動（空ボリューム）時に一度だけ実行。テスト用 DB(ecp_test) を作る
+      - ./backend/database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # backend / queue コンテナが「DB が受付可能」になるまで待てるように
+      test: ["CMD-SHELL", "pg_isready -U ecp -d ecp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── RustFS（S3 互換ストレージ）────────────────────────────
+  # 商品画像・CMS 画像の置き場。本番は Railway Storage Bucket（S3 互換）なので、
+  # ローカルも S3 API で話せるものを使う（R3 途中で MinIO から置き換え）。
+  rustfs:
+    image: rustfs/rustfs:1.0.1
+    container_name: ecp4-rustfs
+    environment:
+      # ルート資格情報。backend/.env と frontend/.env.local の AWS_* / BUCKET_* に使う
+      RUSTFS_ACCESS_KEY: ecp
+      RUSTFS_SECRET_KEY: ecpsecret
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000"   # S3 API（Laravel / Next.js からのアクセス先）
+      - "9001:9001"   # 管理コンソール（ブラウザで http://localhost:9001/rustfs/console/ ）
+    volumes:
+      - ecp4-rustfs:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── バケット初期化（使い捨て）─────────────────────────────
+  # rustfs が healthy になったら 1 回だけ実行してバケットを作る（既にあれば何もしない）。
+  # 本番の Railway バケットは private なので、ここでも公開設定はしない。
+  createbuckets:
+    image: amazon/aws-cli:2.38.1
+    container_name: ecp4-createbuckets
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ecp
+      AWS_SECRET_ACCESS_KEY: ecpsecret
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: >
+      /bin/sh -c "
+      aws --endpoint-url http://rustfs:9000 s3api head-bucket --bucket ec-portfolio-media 2>/dev/null ||
+      aws --endpoint-url http://rustfs:9000 s3 mb s3://ec-portfolio-media &&
+      echo '✅ bucket ec-portfolio-media ready';
+      "
+    restart: "no"
+
+  # ── Mailpit（ローカルの SMTP 受信箱）──────────────────────
+  # 送信したメールはすべてここで受信し、Web UI（http://localhost:8025）で確認する。
+  # 実際には誰にも届かない。本番は Resend（docs/10-email.md）。
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ecp4-mailpit
+    environment:
+      MP_MAX_MESSAGES: "500"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "8025:8025"   # Web UI
+      # SMTP(1025) はコンテナ間通信のみ。ホストには公開しない
+
+# ── 永続ボリューム ─────────────────────────────────────────
+volumes:
+  ecp4-pgdata:
+  ecp4-rustfs:
