@@ -45,3 +45,12 @@
 - `docker-compose.yml`: `db`（postgres:16-alpine、`ecp`）/ `rustfs` + `createbuckets`（`ec-portfolio-media` を private で自動作成）/ `mailpit`。コンテナ・ボリューム名は `ecp4-*`
 - `backend/database/init/01-create-test-db.sql`（テスト DB `ecp_test`）を R3 の Step 6 から前倒し。DB の初回起動時にしか実行されないため最初から置く
 - backend / frontend / queue / scheduler は Step 3 以降で段階的に追加
+
+**Step 3 — 2026-10-15 backend（Laravel 12）+ Postgres 疎通**
+- `composer create-project laravel/laravel:^12`（使い捨て `composer:2` コンテナ）→ `backend/`（v12.70.0）
+- `php artisan install:api` で Sanctum。`User` に `HasApiTokens`
+- コミットを「コマンドの生成物」と「手で書いた部分」に分割（生成物は読まなくてよいので例外的に 1 コミット）
+- `docker-compose.yml` に `backend`（`serversideup/php:8.4-fpm-nginx`、`./backend` マウント、8000→8080）。`.env` は env_file で注入せずアプリに読ませる（テスト DB が上書きされない）
+- `backend/.env.example` は R3 と同じ（Stripe / BFF / 管理者は空のプレースホルダ。使う Step で埋める）
+- `GET /api/health`（DB 接続チェック込み）
+- 確認: `curl localhost:8000/api/health` → `status ok` / `database ok`、`install:api` の migrate が Postgres に成功、pint パス

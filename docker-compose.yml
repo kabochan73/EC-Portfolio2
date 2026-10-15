@@ -2,8 +2,8 @@
 # ローカル開発環境。frontend / backend / queue も含めて「全部 Docker」
 # （docs/07-local-dev.md）。一度に全部は作らず、段階的に足していく:
 #
-#   Step 2 : db / rustfs / mailpit だけ。まず土台の疎通を確認する  ← いまここ
-#   Step 3 : backend（serversideup/php）を追加
+#   Step 2 : db / rustfs / mailpit だけ。まず土台の疎通を確認する
+#   Step 3 : backend（serversideup/php）を追加  ← いまここ
 #   Step 4 : frontend（next dev）を追加
 #   Step 5 : queue worker / scheduler を追加
 #
@@ -82,6 +82,35 @@ services:
       echo '✅ bucket ec-portfolio-media ready';
       "
     restart: "no"
+
+  # ── backend（Laravel / serversideup/php）────────────────────
+  # nginx + php-fpm を同梱した本番向けイメージ。ローカルも本番も同じイメージを使う
+  # （本番は docs/04 の薄い Dockerfile でコードを焼き込む。ローカルは ./backend をマウント）。
+  backend:
+    image: serversideup/php:8.4-fpm-nginx
+    container_name: ecp4-backend
+    volumes:
+      # ソースをマウントしてホットリロード（php-fpm はリクエストごとに読み直す）
+      - ./backend:/var/www/html
+    environment:
+      # serversideup 側の運用フラグのみ。Laravel の設定は ./backend/.env を
+      # アプリ自身がディスクから読む（env_file で注入すると APP_ENV / DB_* が
+      # 実コンテナ環境変数になり、phpunit.xml の <env> がテスト DB を上書きできず
+      # テストが開発 DB を作り直してしまう。R3 で踏んだ罠）。
+      SSL_MODE: "off"                 # 内部通信は http。TLS は本番で Railway エッジが終端
+      PHP_OPCACHE_ENABLE: "0"         # dev はコード変更を即反映したいので opcache 無効
+      AUTORUN_ENABLED: "false"        # dev は migrate 等を手動で叩く（本番は true）
+    ports:
+      # ホスト 8000 → コンテナ 8080（serversideup は非 root で 8080 をリッスン）。
+      # BFF なので通常ブラウザからは使わないが、curl / Stripe CLI 用に開けておく
+      - "8000:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
 
   # ── Mailpit（ローカルの SMTP 受信箱）──────────────────────
   # 送信したメールはすべてここで受信し、Web UI（http://localhost:8025）で確認する。
