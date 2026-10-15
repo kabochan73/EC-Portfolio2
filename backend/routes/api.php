@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Account\AddressController;
 use App\Http\Controllers\Api\Account\ProfileController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
+use App\Http\Controllers\Api\Order\CheckoutController;
 use App\Http\Controllers\Api\Order\OrderController;
 use App\Http\Controllers\Api\Shop\CartController;
 use App\Http\Controllers\Api\Shop\CategoryController;
@@ -65,4 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // 作成だけレート制限をかけるので、store には middleware を個別に付ける
     Route::apiResource('orders', OrderController::class)->only(['index', 'store', 'show'])
         ->middlewareFor('store', 'throttle:orders');
+
+    // --- 決済（注文の PaymentIntent を作成 or 再利用し client_secret を返す。docs/09） ---
+    Route::post('/checkout/payment-intent', [CheckoutController::class, 'paymentIntent']);
 });

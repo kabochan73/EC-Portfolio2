@@ -198,3 +198,10 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - `GET /api/orders/{order}` … 本人のみ、他人・不明は 404、`items.product:id,slug` + `payment` を eager load
 - **R4 変更**: ルートを `Route::apiResource('orders', ...)->only(['index','store','show'])->middlewareFor('store','throttle:orders')` に。show は文字列の注文番号で検索する代わりに **ルートモデルバインディング**（`getRouteKeyName()` = `order_number`）+ 本人チェック（住所録と同じ形）。throttle が store だけに付くことを `gatherMiddleware()` で確認
 - Feature テスト 6 本。`php artisan test` 120 passed
+
+**Step 20 — 2026-10-15 StripeService + PaymentIntent 作成 API**（3 コミット）
+- 20a `stripe/stripe-php`（v21.3.2）。`StripeService`（`StripeClient` ラッパー：`createPaymentIntent` / `retrievePaymentIntent` / `cancelPaymentIntent` / `refund` / `constructWebhookEvent`）。`AppServiceProvider::register` で `StripeClient` を DI（キー未設定でも構築は通す＝空文字ではなく `[]`）。`phpunit.xml` に STRIPE ダミーキー
+- 20b `CreatePaymentIntent`: キー未設定 503 → **注文を `lockForUpdate` で読み直し** → 非 pending 409 → 現在のカタログ価格で total 再計算し一致確認（ズレ 409）→ payments 無ければ作成・あれば retrieve（`canceled` なら作り直し）
+  - **R4 追加**: 行ロックで二重作成を防ぐ（R3 はダブルクリック等で Stripe に PI が 2 つでき、payments の UNIQUE 違反で 500 になりえた）。偽の StripeService（作成に 2 秒）で 2 プロセス同時に呼び、1 つ目が作成・2 つ目は待って再利用・payments 1 行を確認
+- 20c `POST /api/checkout/payment-intent`（auth、他人の注文 404）。テストは `StripeService` をモック
+- Feature テスト 7 本。`php artisan test` 127 passed
