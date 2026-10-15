@@ -170,3 +170,15 @@
 
 ### Phase 3 完了
 認証コア / BFF 実 IP / プロフィール / 住所録 / パスワードリセットが揃った。`php artisan test` 97 passed。次は Phase 4（注文 + Stripe 決済）。
+
+### Phase 4 — 注文 + Stripe 決済（Step 17〜22）
+
+R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャンセル・置き換え・遅延入金の返金）をまとめて作る。
+
+**Step 17 — 2026-10-15 注文の Domain ロジック + 例外**
+- `ShippingFeeCalculator`（`>= 20000` で 0、それ以外 800、config 参照、Eloquent 非依存）
+- `OrderNumberGenerator`（`EC-YYYYMMDD-NNNN`、当日の最大連番 + 1、衝突時は次の番号を最大 20 回試す、UNIQUE 制約が最終防衛線）
+  - **R4 修正 #1**: 日付を `now('Asia/Tokyo')` に。R3 の「max を取った後に in_array でも確認する」重複ロジックも整理
+- `InsufficientStockException` / `UnpublishedProductException`（`render()` で 422 + 原因の variant / product）
+- Unit テスト 7 本（送料の境界、採番の初回/連番/日跨ぎ/**JST 08:30 = UTC 前日**/飛び番）。テストの時刻は `travelToJst()` で JST 指定
+- 確認: 一時的に `now()`（UTC）へ戻すと日跨ぎ・JST の 2 本が落ちる = テストが R3 のバグを捕まえられることを確認。`php artisan test` 104 passed
