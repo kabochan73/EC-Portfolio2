@@ -182,3 +182,13 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - `InsufficientStockException` / `UnpublishedProductException`（`render()` で 422 + 原因の variant / product）
 - Unit テスト 7 本（送料の境界、採番の初回/連番/日跨ぎ/**JST 08:30 = UTC 前日**/飛び番）。テストの時刻は `travelToJst()` で JST 指定
 - 確認: 一時的に `now()`（UTC）へ戻すと日跨ぎ・JST の 2 本が落ちる = テストが R3 のバグを捕まえられることを確認。`php artisan test` 104 passed
+
+**Step 18 — 2026-10-15 注文作成 API（POST /api/orders）**（3 コミット）
+- 18a DTO 3 種（`CreateOrderInput` / `CartLineInput` / `ShippingAddressInput`）+ `StoreOrderRequest`（`items.*.variant_id` は `distinct`、`address_id` は `Rule::exists->where(user_id)`、`address` とどちらか必須）
+- 18b `CreateOrder`: トランザクションで variant を `lockForUpdate` → 在庫検証 → 未公開検証 → subtotal をサーバー再計算（**クライアント送信の金額は無視**）→ `orders`(pending) + `order_items`（スナップショット）→ 在庫減算 → `save_address` なら住所録へ
+  - **R4 修正 #3**: `orderBy('id')->lockForUpdate()`（デッドロック回避）。tinker の SQL ログで `order by "id" asc for update` を確認
+  - **R4 変更**: 住所の保存は `CreateAddress` に委譲（R3 は「初回なら default」を重複実装）。内側の `DB::transaction` は外側に合流するので、注文失敗時は住所も巻き戻る
+  - `OrderResource` / `OrderItemResource`（`whenLoaded` で一覧・詳細を共用、画像なしの空文字は null で返す）
+- 18c `OrderController@store`、`throttle:orders`（ユーザーごとに 5 回/分）。メール認証は不要。未決済注文の置き換え（CancelSupersededOrders）は Stripe 連携が要るので Step 22
+- Feature テスト 10 本
+- 確認: 在庫不足（999 個）で例外 → 注文 0 件増・在庫そのまま（全部ロールバック）。`php artisan test` 114 passed

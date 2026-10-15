@@ -39,7 +39,9 @@ class AppServiceProvider extends ServiceProvider
         // パスワードリセットの送信・実行（IP で 6 回/分）。メール爆撃とトークン総当たりを抑える
         RateLimiter::for('password-reset', fn (Request $request) => Limit::perMinute(6)->by($request->ip()));
 
-        // Stripe クライアントの登録と、注文作成のレート制限（orders）は
-        // それぞれの機能を作る Step で足す（R3 の最終形は ../EC-Portfolio を参照）。
+        // 注文作成（ユーザーごとに 5 回/分）。在庫の確保を連打で繰り返させない
+        RateLimiter::for('orders', fn (Request $request) => Limit::perMinute(5)->by((string) $request->user()?->id));
+
+        // Stripe クライアントの登録は決済の Step（Step 20）で足す
     }
 }

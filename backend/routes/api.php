@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Account\AddressController;
 use App\Http\Controllers\Api\Account\ProfileController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Auth\PasswordResetController;
+use App\Http\Controllers\Api\Order\OrderController;
 use App\Http\Controllers\Api\Shop\CartController;
 use App\Http\Controllers\Api\Shop\CategoryController;
 use App\Http\Controllers\Api\Shop\ProductController;
@@ -57,4 +58,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // 1 件取得（show）は画面で使わないので外す。CRUD に収まらない「default に設定」だけ個別に足す
     Route::apiResource('addresses', AddressController::class)->except(['show']);
     Route::post('/addresses/{address}/default', [AddressController::class, 'setDefault']);
+
+    // --- 注文 ---
+    // メール認証は不要（ポートフォリオ用途で誰でも購入体験できるようにしている）
+    Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:orders');
 });
