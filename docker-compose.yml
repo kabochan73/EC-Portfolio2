@@ -4,8 +4,8 @@
 #
 #   Step 2 : db / rustfs / mailpit だけ。まず土台の疎通を確認する
 #   Step 3 : backend（serversideup/php）を追加
-#   Step 4 : frontend（next dev）を追加  ← いまここ
-#   Step 5 : queue worker / scheduler を追加
+#   Step 4 : frontend（next dev）を追加
+#   Step 5 : queue worker / scheduler を追加  ← いまここ（環境構築ほぼ完了）
 #
 # コンテナ名は ecp4-*（R3 の ecp-* とぶつからないように）。
 # ポートは R3 と同じなので、R4 を起動する前に R3 を止めること。
@@ -111,6 +111,57 @@ services:
         condition: service_healthy
       mailpit:
         condition: service_started
+
+  # ── queue worker（Laravel。docs/06 §5 / docs/10）─────────────
+  # backend と同じイメージ・同じコードを使い、起動コマンドだけ queue:work に差し替える。
+  # 載せるのはメール送信ジョブ（パスワードリセット / 注文確認 / 発送通知）。
+  # コードを変えたら docker compose restart queue（worker は起動時にコードを読む）。
+  queue:
+    image: serversideup/php:8.4-fpm-nginx
+    container_name: ecp4-queue
+    command: ["php", "artisan", "queue:work", "--tries=3", "--sleep=3", "--max-time=3600"]
+    # --max-time で worker は1時間ごとに自ら終了する（メモリリーク対策の定石）。
+    # Docker に再起動させて常駐を維持する。
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      SSL_MODE: "off"
+      AUTORUN_ENABLED: "false"   # migrate 等は backend 側で手動。worker はやらない
+    # serversideup の既定 healthcheck は web サーバーを見に行くが、この
+    # コンテナは queue:work だけを動かすのでプロセスの存在で判定する
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'queue:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  # ── scheduler（Laravel スケジューラ。routes/console.php）──────
+  # 期限切れの未決済注文のキャンセル（orders:expire-pending）などを定期実行する。
+  # queue と同じくコードを変えたら docker compose restart scheduler。
+  scheduler:
+    image: serversideup/php:8.4-fpm-nginx
+    container_name: ecp4-scheduler
+    command: ["php", "artisan", "schedule:work"]
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      SSL_MODE: "off"
+      AUTORUN_ENABLED: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'schedule:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
 
   # ── frontend（Next.js / next dev）───────────────────────────
   # ブラウザが触れる唯一のサーバー（BFF）。ソースをマウントしてホットリロード。

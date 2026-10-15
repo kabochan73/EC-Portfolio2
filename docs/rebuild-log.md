@@ -54,3 +54,19 @@
 - `backend/.env.example` は R3 と同じ（Stripe / BFF / 管理者は空のプレースホルダ。使う Step で埋める）
 - `GET /api/health`（DB 接続チェック込み）
 - 確認: `curl localhost:8000/api/health` → `status ok` / `database ok`、`install:api` の migrate が Postgres に成功、pint パス
+
+**Step 4 — 2026-10-15 frontend（Next.js 15）+ 確定ライブラリ**
+- `create-next-app@15`（使い捨て `node:22-alpine`、`--skip-install`）→ `frontend/`（Next 15.5.28 / React 19.1、App Router、TS、Tailwind v4、no src dir、turbopack、eslint）
+- 確定ライブラリ: zustand / @tanstack/react-query / react-hook-form + @hookform/resolvers + zod(3 系) / @aws-sdk/client-s3 / lucide-react / @stripe/stripe-js(9 系) / @stripe/react-stripe-js(6 系)。**Stripe は R3 と同じメジャーに固定**（最新は 10 / 7 系だが、R3 と見比べながら書くため）。テスト系（Vitest 等）はテストを書く Step で入れる
+- `frontend/Dockerfile.dev`（起動時 `npm install && npm run dev`）/ compose に `frontend`（`node_modules` と `.next` は名前付きボリュームに隔離、polling 有効）
+- `package.json` に `engines: node >=22 <23`、`next.config.ts` に `output: 'standalone'`
+- 雛形の `.gitignore` が `.env*` で `.env.example` まで除外していたので `!.env.example` を追加
+- ホスト側にも `npm ci`（IDE 補完用）
+- 確認: `curl localhost:3000` → 200、コンテナ内 `tsc --noEmit` / `lint` パス
+
+**Step 5 — 2026-10-15 queue worker / scheduler**
+- compose に `queue`（`queue:work --tries=3 --sleep=3 --max-time=3600`）と `scheduler`（`schedule:work`）。どちらも backend と同イメージ・同コードで `command` だけ差し替え
+- serversideup の既定 healthcheck は web サーバーを見るので `pgrep` に差し替え
+- R3 では scheduler は後から追加したが、R4 は最初から入れる（定期実行の中身は注文の Step で書く）
+- 確認: 2 つとも healthy。`Artisan::queue('inspire')` で積んだジョブを queue が処理（DONE、jobs 0 件・failed 0 件）
+  - tinker から積んだクロージャのジョブは「eval されたコードはシリアライズできない」ため失敗する。queue の不具合ではない（確認方法の問題）
