@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Order\OrderController;
 use App\Http\Controllers\Api\Shop\CartController;
 use App\Http\Controllers\Api\Shop\CategoryController;
 use App\Http\Controllers\Api\Shop\ProductController;
+use App\Http\Controllers\Api\Webhook\StripeController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,11 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:lo
 // パスワードリセット（どちらも公開。送信は登録の有無に関係なく常に 200）
 Route::post('/forgot-password', [PasswordResetController::class, 'sendLink'])->middleware('throttle:password-reset');
 Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:password-reset');
+
+// Stripe Webhook … 認証なし・署名検証のみ（docs/09）。ブラウザ（BFF）を経由しない唯一のエンドポイント
+Route::post('/stripe/webhook', StripeController::class)
+    ->middleware('throttle:60,1')
+    ->name('stripe.webhook');
 
 // --- 認証必須 ---
 Route::middleware('auth:sanctum')->group(function () {

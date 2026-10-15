@@ -46,10 +46,19 @@ class StripeService
         return $this->stripe->paymentIntents->cancel($id);
     }
 
-    /** 全額返金（部分返金はスコープ外。docs/09）。 */
+    /**
+     * 全額返金（部分返金はスコープ外。docs/09）。
+     *
+     * idempotency key を付ける（R4。rebuild-log の残タスク ④）。同じキーのリクエストは Stripe 側で
+     * 2 回目以降は実行されず 1 回目の結果が返る。全額返金は PaymentIntent 1 つにつき 1 回しか
+     * ありえないので PI の ID をキーにする。DB がロールバックして処理がやり直しになっても二重返金しない
+     */
     public function refund(string $paymentIntentId): Refund
     {
-        return $this->stripe->refunds->create(['payment_intent' => $paymentIntentId]);
+        return $this->stripe->refunds->create(
+            ['payment_intent' => $paymentIntentId],
+            ['idempotency_key' => "refund-{$paymentIntentId}"],
+        );
     }
 
     /**
