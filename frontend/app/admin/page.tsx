@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Admin Dashboard" };
 
 /**
  * 管理画面のダッシュボード（Server Component）。運用の数字（注文・未払い・在庫）と最近の注文。
- * 売上ダッシュボード（KPI・グラフ・ランキング）は Step 43 でこのページに足す。
+ * 売上（KPI・グラフ・ランキング）は /admin/sales に分けた（2026-10-16 ユーザーの判断）
  */
 export default async function AdminDashboardPage() {
   const { token } = await requireAdmin("/admin");

@@ -14,7 +14,8 @@
 
 | パス | 内容 |
 |---|---|
-| `/admin` | ダッシュボード（注文件数・pending 件数・在庫僅少/切れの商品数・最近の注文5件）+ **売上ダッシュボード（R4 追加）**。下の「売上ダッシュボード」節 |
+| `/admin` | ダッシュボード（注文件数・pending 件数・在庫僅少/切れの商品数・最近の注文5件） |
+| `/admin/sales` | **売上ダッシュボード（R4 追加）**。下の「売上ダッシュボード」節。運用のダッシュボードとは別ページ（2026-10-16 ユーザーの判断） |
 | `/admin/products` | 商品一覧（未公開含む、検索・カテゴリ絞り込み・ページング） |
 | `/admin/products/new` | 商品新規作成 |
 | `/admin/products/[id]` | 商品編集（基本情報／画像／バリアント／公開フラグ） |
@@ -24,7 +25,7 @@
 | `/admin/customers` | 会員一覧（閲覧のみ、注文数・登録日、名前/メール検索） |
 | `/admin/content` | **CMS（R3 追加）**。トップの Hero / Concept / Lookbook / About を編集 |
 
-管理画面はモノトーンだが装飾を排し、機能優先のテーブル/フォームレイアウト。ストアフロントの Header/Footer は持たず、専用サイドバー（Dashboard / Products / Categories / Orders / Customers / Content / My Account）。
+管理画面はモノトーンだが装飾を排し、機能優先のテーブル/フォームレイアウト。ストアフロントの Header/Footer は持たず、専用サイドバー（Dashboard / Sales / Products / Categories / Orders / Customers / Content / My Account）。
 
 ### 商品編集ページ
 
@@ -53,7 +54,7 @@
 
 保存 = `PUT /api/admin/content/{key}`（画像は先に `POST /api/admin/content/{key}/images` でアップロードして URL を得てから）。成功後 BFF が `revalidateTag('content')`。
 
-### 売上ダッシュボード（`/admin`。R4 追加）
+### 売上ダッシュボード（`/admin/sales`。R4 追加）
 
 R3 は「売上を表示しない」方針だったが、2026-10-15 に撤回。EC の管理画面らしさと、集計クエリ（日付の区切り・前月比）を設計する題材として追加する。
 

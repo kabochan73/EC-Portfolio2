@@ -177,7 +177,8 @@ CC にするのは次のどれかに当てはまるときだけ:
 
 | ページ | page.tsx | CC の部品 |
 |---|---|---|
-| `/admin` | SC（stats + 売上） | `SalesChart`（日別⇔月別の切り替えだけ） |
+| `/admin` | SC（stats） | なし |
+| `/admin/sales` | SC（売上） | `SalesChart`（日別⇔月別の切り替えだけ） |
 | `/admin/categories` | SC | `CategoryManager` |
 | `/admin/products`、`/new`、`/[id]` | SC | `ProductForm` / `ProductImagesManager` / `VariantsManager` |
 | `/admin/orders`、`/[number]` | SC | `OrderStatusActions` |

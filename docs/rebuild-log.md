@@ -414,3 +414,11 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **取り消した変更（自分の誤り）**: 「layout と page の両方で requireAdmin() を呼ぶので /api/me が 2 回呼ばれる」と考えて React の `cache()` で包んだが、backend のアクセスログで数えると cache なし（R3 と同じ）でも 1 回だった。Next.js は 1 回のサーバー描画の中の同じ GET の fetch を自動で 1 回にまとめる（Request Memoization）ため。cache() は外し、理由をコメントに残した
 - 42b `lib/types/admin.ts`（`AdminOrderListItem` / `DashboardStats`）、`lib/admin/dashboard.ts`、`StatCard`、`OrderTable`（最近の注文・注文一覧・顧客の注文履歴で共用。R4 は最初から部品として作る）、`/admin`（Orders / Pending / Low Stock / Sold Out + 最近の注文）
 - 確認（CDP）: 未ログイン → `/login?redirect=%2Fadmin`、一般ユーザー → `/`、admin → `/admin`。数字と最近の注文 3 件。スマホは横スクロールなし（表だけ枠内で横スクロール）
+- 詰まり（ユーザーから）: 管理者でログインできない → ユーザーが backend/.env の `ADMIN_*` を書き換えた後、`AdminUserSeeder` を流していなかった（Seeder は実行時にしか .env を読まない）。`db:seed --class=AdminUserSeeder` で `admin@example.com` を作成、旧 `admin@ec-portfolio.example.jp` はユーザーの指示で削除。メールをキーに updateOrCreate するので、メールを変えると別の管理者が増える点に注意
+
+**Step 43 — 2026-10-16 売上ダッシュボードの画面（R4 の新機能）**（3 コミット）
+- 43a `lib/types/admin.ts` に売上の型（`SalesKpi` / `DailyRevenue` / `MonthlyRevenue` / `CategoryRanking` / `SalesDashboard`）、`lib/admin/sales.ts`（`GET /api/admin/sales`）
+- 43b `SalesKpiCards`（SC）、`SalesChart`（CC。**グラフのライブラリなし**。棒は div の高さ = 売上 ÷ 期間内の最大値、日別⇔月別は `useState` だけで再取得しない、ホバーで金額、目盛りは最大値と 0、`role="img"` + aria-label）、`SalesRanking`（SC。前月比は % 表示、先月 0 は「—」、今月 0 個の行は灰色）
+- 43c 最初は `/admin` に組み込んだが、**ユーザーの判断で `/admin/sales` に別ページとして分離**（サイドバーに Sales を追加。`/admin` は運用の数字と最近の注文だけ）。docs/05・08 も更新
+- 確認（CDP）: 今月・先月・2 か月前・キャンセルの試験注文（既存の注文も含めて期待値を手計算）→ KPI ¥99,500 / 5 件 / 今日 ¥47,500、日別は 31 本で 10/01 ¥24,000 = 50.53%・10/05 = 58.95%・10/16 = 100%（JST 10/01 00:30 の注文が 1 日に入る）、月別は 12 本で 8 月 12.06%・9 月 54.27%・10 月 100%、TOPS のランキングは T シャツ 4 個（先月 1 → 400%）→ ポロ 1 個 ¥21,000（先月 2 → 50%）→ ロングスリーブ 1 個 ¥16,000（—）→ オックスフォード 0。すべて手計算と一致
+  - スマホの幅で日別ラベルの 30 と 31 がくっつく → 月末のラベルをやめて 1・5・…・30 に
