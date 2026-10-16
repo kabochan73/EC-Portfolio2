@@ -455,3 +455,11 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 47b `AdminCustomer` 型、`lib/admin/customers.ts`、`/admin/customers`（SC。名前・メールの検索 + `Pagination`）、`/admin/customers/[id]`（会員の情報 + 注文履歴。`OrderTable` の顧客列なし）
   - **R4 変更**: 登録日は `formatDate`（日本時間）。会員と注文履歴は `Promise.all` で同時に取る（R3 は順番に）
 - 確認（CDP。確認用の会員 + pending / paid / shipped の注文を tinker で作成）: pending を Cancel Order → cancelled・在庫 11 → 12、paid を Mark as Shipped → shipped・Mailpit に発送メール、shipped を Mark as Completed → 「これ以上変更できません」、completed → shipped を API に直接 → 422、存在しない注文番号 → 404。会員一覧・`q=S47` → 1 件・`q=nobody` → No customers found、注文詳細の顧客リンク → 会員詳細（注文 3 件・顧客列なし）、管理者の id と存在しない id → 404。在庫を戻し、確認用の会員と注文は削除
+
+**Step 48 — 2026-10-16 CMS の編集（`/admin/content`）**（2 コミット）
+- 48a `ContentKey` 型、`adminContent` スキーマ、`lib/admin/content.ts`、BFF `PUT /bff/admin/content/[key]`（保存したら `revalidateTag('content')`）・`POST …/[key]/images`（url を返すだけ。キャッシュは保存のときに消える）、`useContentSave`、`ContentImageUpload`
+  - **R4 変更**: 「zod で確かめる → PUT → エラー / 保存しました」を `useContentSave` フックに（R3 は 4 セクションに同じ 25 行の `save()`）。GET の BFF は作らない（R3 にあったが未使用）
+- 48b `ContentSaveBar`、`HeroSection`・`ConceptSection`・`LookbookSection`・`AboutSection`、`lib/array.ts`（`moveItem`）、`/admin/content`（SC が 4 セクションを並べる。R3 の `ContentEditor` ラッパーはなし）
+  - **R4 修正**: Lookbook の key を画像の url に（R3 は配列の番号で、並べ替えると行の対応がずれることがあった）。確認で、追加した画像を先頭へ動かすと alt も一緒に動くのを確認
+- 確認（CDP）: Hero の見出しを保存 → トップにすぐ出る、Concept を空で保存 → 「本文を入力してください」、Lookbook に画像を追加 → 先頭へ → alt を入れて保存 → トップの順番も変わる、About の見出しを空 → zod のエラー → 直して保存 → トップに出る。最後に保存前の内容（バックアップ）を BFF で書き戻した
+  - **自分の誤り（後片付け）**: 確認で上げた画像だけを消すつもりで「今の CMS の data に含まれないファイル」を消したが、data を `json_encode` した文字列で比べたため（`/` が `\/` になる）全部が未使用と判定され、Step 33 の確認用画像（Hero 1 枚・Lookbook 2 枚）まで消した。Lookbook 2 枚は商品 1 の画像と同じものだったのでバケット内でコピーし、Hero は Next.js の画像キャッシュ（`/_next/image` の w=1920）に残っていた元の画像を取り出して、同じキー（ファイル名）で戻した。DB は変えていない。差し替え中に作られた画像キャッシュは `.next/cache/images` ごと消した。消す前に「消す対象の一覧」を出して確かめるべきだった
