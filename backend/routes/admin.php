@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\CategoryController;
+use App\Http\Controllers\Api\Admin\ProductController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,3 +17,6 @@ use Illuminate\Support\Facades\Route;
 // reorder は静的パスなので apiResource の {category} より先に登録する（後だと "reorder" が id として解釈される）
 Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
 Route::apiResource('categories', CategoryController::class)->except(['show']);
+
+// --- 商品（基本情報。未公開も含む） ---
+Route::apiResource('products', ProductController::class);

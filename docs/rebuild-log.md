@@ -239,3 +239,10 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 変更**: Store / Update の Request を `CategoryRequest` 1 つに（違いは slug unique の ignore だけ。作成時は `ignore(null)` で何も除外しない）
   - **R4 変更**: テスト用 `admin()` ヘルパーを `tests/Pest.php` に移動（R3 は CategoryAdminTest に定義し、他の管理テストが暗黙に依存していた）
 - Feature テスト 1 + 9 本。`php artisan test` 155 passed
+
+**Step 24 — 2026-10-16 商品管理 CRUD（基本情報）**
+- `Admin/Product` の Create（position は末尾）/ Update / Delete Action、`Admin/ProductListResource`（未公開含む要約 + `total_stock` / `variant_count`、`withSum` / `withCount` 前提で null は 0）、`Admin/ProductResource`（編集フォーム用の生値 + images / variants）、`Admin/ProductVariantResource`（管理用は生の stock も返す）
+- `Admin/ProductController`（index は `?q` ilike 部分一致・`?category` slug・20 件ページング）。ルートは `apiResource('products')`（5 本すべて使う）
+- **R4 変更**: Store / Update を `ProductRequest` 1 つに（CategoryRequest と同じく slug unique の ignore だけが違った）。テストの `adminUser()` は共通の `admin()` に置き換え
+- `DeleteProduct` のバケット上の画像実体の掃除は、StorageService を作る Step 25 で足す
+- Feature テスト 9 本（在庫合計のテストは R3 でフレークしていたので 5 回連続で実行し安定を確認）。`php artisan test` 164 passed
