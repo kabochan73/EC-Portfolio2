@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -30,3 +31,9 @@ pest()->extend(TestCase::class)
 | Stripe の疑似イベントなどは tests/Support/ に置く（docs/12）。
 |
 */
+
+/** 管理 API のテスト用の admin ユーザー（R4。R3 は CategoryAdminTest に定義し、他の管理テストもそれに依存していた） */
+function admin(): User
+{
+    return User::factory()->admin()->create();
+}

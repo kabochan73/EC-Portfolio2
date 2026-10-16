@@ -228,3 +228,14 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 
 ### Phase 4 完了
 注文作成 → PaymentIntent → Webhook（成功 / 失敗 / キャンセル / 返金）→ 確認メール、未決済注文の自動キャンセル・置き換えまで揃った。`php artisan test` 145 passed。次は Phase 5（管理 API + CMS + 売上ダッシュボード API）。
+
+### Phase 5 — 管理 API + CMS + 売上ダッシュボード API（Step 23〜30）
+
+**Step 23 — 2026-10-16 管理 API の土台 + カテゴリ管理**（3 コミット）
+- 23a `EnsureAdmin`（`role != admin` は 403）を `bootstrap/app.php` で `admin` エイリアスに。`routes/admin.php` に分離し、`api.php` で `auth:sanctum` + `admin` + `prefix('admin')` + **`name('admin.')`**（apiResource の名前が利用者側の `orders.index` 等と衝突しないように。R4 追加）
+  - **R4 追加**: `AdminRoutesTest` … `/api/admin/*` の全ルートが `auth:sanctum` と `admin` を通ることを構造で検証。group から admin を外すと落ちることを確認
+- 23b `Admin/Category` の Create/Update/Delete/Reorder Action、`CategoryInUseException`（所属商品ありの削除 409。DB の RESTRICT に頼らず事前チェック）
+- 23c `Admin/CategoryController`、`Admin/CategoryResource`（position + products_count）。ルートは `PUT /categories/reorder` を先に、残りは `apiResource('categories')->except(['show'])`
+  - **R4 変更**: Store / Update の Request を `CategoryRequest` 1 つに（違いは slug unique の ignore だけ。作成時は `ignore(null)` で何も除外しない）
+  - **R4 変更**: テスト用 `admin()` ヘルパーを `tests/Pest.php` に移動（R3 は CategoryAdminTest に定義し、他の管理テストが暗黙に依存していた）
+- Feature テスト 1 + 9 本。`php artisan test` 155 passed
