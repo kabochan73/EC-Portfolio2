@@ -1,22 +1,17 @@
-// ブラウザ → GET /bff/me → Laravel GET /api/me。AccountLink がログイン状態を確認する。
-// プロフィール更新（PUT）は Step 39 で足す。
+// ブラウザ → GET/PUT /bff/me → Laravel GET/PUT /api/me。
+// GET: AccountLink がログイン状態を確認する。PUT: /account/profile の氏名・メール変更。
 
 import { NextResponse } from "next/server";
 
-import { apiErrorResponse } from "@/lib/api";
-import { fetchCurrentUser, getSessionToken } from "@/lib/auth";
+import { fetchCurrentUser, updateProfile } from "@/lib/auth";
+import { withSession } from "@/lib/bff";
 
 export async function GET() {
-  const token = await getSessionToken();
+  return withSession(async (token) => NextResponse.json({ data: await fetchCurrentUser(token) }));
+}
 
-  if (!token) {
-    return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
-  }
+export async function PUT(request: Request) {
+  const body = await request.json();
 
-  try {
-    const user = await fetchCurrentUser(token);
-    return NextResponse.json({ data: user });
-  } catch (error) {
-    return apiErrorResponse(error);
-  }
+  return withSession(async (token) => NextResponse.json({ data: await updateProfile(token, body) }));
 }

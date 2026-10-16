@@ -2,17 +2,18 @@
 // 認証まわりのサーバー側専用ヘルパー（Route Handler / Server Component から使う）。
 // - Cookie 管理: トークンは httpOnly Cookie に入れ、ブラウザの JS からは触れない
 // - Laravel 呼び出し: app/bff/**/route.ts を薄く保てるよう実処理はここに置く
-// プロフィール更新・パスワード変更は、それを使う Step 39 で足す。
 // ─────────────────────────────────────────────────────────────
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { NextResponse } from "next/server";
 
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, bearer, bearerJson } from "@/lib/api";
 import { SESSION_COOKIE_NAME } from "@/lib/constants";
 import type { ForgotPasswordFormValues } from "@/lib/schemas/forgotPassword";
 import type { LoginFormValues } from "@/lib/schemas/login";
+import type { PasswordFormValues } from "@/lib/schemas/password";
+import type { ProfileFormValues } from "@/lib/schemas/profile";
 import type { RegisterFormValues } from "@/lib/schemas/register";
 import type { ResetPasswordFormValues } from "@/lib/schemas/resetPassword";
 import type { ApiResource, User } from "@/lib/types";
@@ -69,11 +70,6 @@ async function publicPost(body: unknown): Promise<RequestInit> {
   };
 }
 
-/** ログイン中のトークンを付ける */
-function bearer(token: string): Record<string, string> {
-  return { Authorization: `Bearer ${token}` };
-}
-
 /** POST /api/register */
 export async function registerUser(payload: RegisterFormValues): Promise<AuthResult> {
   const result = await apiFetch<ApiResource<User> & { token: string }>(
@@ -101,6 +97,17 @@ export async function logoutUser(token: string): Promise<void> {
 export async function fetchCurrentUser(token: string): Promise<User> {
   const result = await apiFetch<ApiResource<User>>("/api/me", { headers: bearer(token) });
   return result.data;
+}
+
+/** PUT /api/me（氏名・メール変更） */
+export async function updateProfile(token: string, payload: ProfileFormValues): Promise<User> {
+  const result = await apiFetch<ApiResource<User>>("/api/me", bearerJson(token, "PUT", payload));
+  return result.data;
+}
+
+/** PUT /api/me/password。成功時 204。変更した端末以外のトークンは Laravel 側で失効する */
+export async function updatePassword(token: string, payload: PasswordFormValues): Promise<void> {
+  await apiFetch<void>("/api/me/password", bearerJson(token, "PUT", payload));
 }
 
 /** POST /api/forgot-password。存在の有無に関わらず常に成功（中立メッセージ） */

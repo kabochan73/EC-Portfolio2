@@ -98,3 +98,17 @@ export function apiErrorResponse(error: unknown): NextResponse {
   }
   throw error;
 }
+
+/** ログイン中のトークンを付けるヘッダー（サーバー側の lib/*.ts から使う） */
+export function bearer(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** トークン付きで JSON を送る RequestInit（PUT / POST の更新系） */
+export function bearerJson(token: string, method: string, body: unknown): RequestInit {
+  return {
+    method,
+    headers: { ...bearer(token), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
