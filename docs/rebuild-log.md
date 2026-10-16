@@ -306,3 +306,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - R3 から変える点: ① 操作後の再取得を `router.refresh()` に統一（R3 は自前 fetch / TanStack の initialData で SC と二重取得、取り直し専用の GET BFF ルート 3 本 → 削除）② URL パラメータは SC の `searchParams` から props で渡す（`useSearchParams` + `Suspense` を削除）③ `/cart` の page.tsx も SC に
 - 「無理に SC にしている所」は無かった。あったのは逆向き（CC が SC と同じデータを取り直す・SC で読める値を CC で読む）
 - `docs/08` §6 の決済フローを実装に合わせて修正（PaymentIntent は SC で作って client_secret を CC に渡す。R3 の docs は Client がマウント時に作ると書いていた）
+
+### Phase 6 — ストアフロント（Step 31〜41）
+
+**Step 31 — 2026-10-16 共通レイアウト**
+- `globals.css`（4 色トークン `ink / paper / mist / graphite` を Tailwind v4 の `@theme inline` で `bg-ink` 等に。ダークモードなし）、`app/layout.tsx`（Geist、`<html lang="ja">`、title テンプレート `%s | EC-PORTFOLIO`）、`(shop)/layout.tsx`（Header + main `pt-16` + Footer）、`Header`（固定・下ボーダー・ロゴ + LOGIN + CART）、`Footer`、トップは仮の中身
+- **R4 変更**: R3 はこの Step で `QueryProvider` / `CartHydration` / `AccountLink` / `CartCount` まで入れていたが、それぞれ使う Step（34 カート / 36 認証）で足す。今の LOGIN / CART はただのリンク
+- 雛形のトップと `public/*.svg` を削除。`public/.gitkeep` を置く（R3 の本番ビルドで空の public が git に入らず `COPY /app/public` が失敗した罠を先回り）
+- スクショ: `--screenshot` 単体はウィンドウが 500px 程度より狭くならず、390px で撮ると右が切れる → CDP の `Emulation.setDeviceMetricsOverride` で撮るスクリプト（scratchpad の `shot.mjs`）を用意。PC 1280・スマホ 390 とも横スクロールなし（`scrollWidth` = 幅）
+- 確認: `tsc` / `lint` パス、`/` 200・title `EC-PORTFOLIO`
