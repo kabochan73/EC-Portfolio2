@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\ProductImageController;
+use App\Http\Controllers\Api\Admin\VariantController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,3 +27,10 @@ Route::apiResource('products', ProductController::class);
 Route::post('/products/{product}/images', [ProductImageController::class, 'store']);
 Route::put('/products/{product}/images/reorder', [ProductImageController::class, 'reorder']);
 Route::delete('/product-images/{productImage}', [ProductImageController::class, 'destroy']);
+
+// --- バリアント（サイズ × 色）---
+// shallow: 作成は「どの商品か」が要るので /products/{product}/variants、
+// 作成後は id だけで特定できるので /variants/{variant}（R3 の手書き 3 本と同じ URL を 1 行で）
+Route::apiResource('products.variants', VariantController::class)
+    ->shallow()
+    ->only(['store', 'update', 'destroy']);

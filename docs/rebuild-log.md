@@ -255,3 +255,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - **R4 変更**: 削除は「DB の行 → バケット」の順（`DeleteProductImage` / `DeleteProduct`）。失敗しても残るのは参照されないファイルだけで、画像切れにならない
 - Feature テスト 9 本（R3 8 本 + 拡張子）。gd 非搭載なので `UploadedFile::fake()->create(..., 'image/jpeg')`
 - 確認: curl で**実 RustFS**に `tiny.html`（中身は JPEG）をアップロード → `.jpg` で保存・バケットに 134 bytes → 削除 204 → バケットから消えた。`php artisan test` 173 passed
+
+**Step 26 — 2026-10-16 バリアント管理**（2 コミット）
+- `Admin/Variant` の Create（position 自動採番）/ Update（size 不変）/ Delete（order_items は SET NULL）Action
+- `Store/UpdateVariantRequest` は `withValidator` で size + color 複合ユニークを部分 UNIQUE と同条件で事前チェック（color null / not-null を出し分け）→ DB 例外にせずフォーム向け 422。作成と更新でルールが違う（size 必須か・自分を除外するか・エラーの付く項目）ので 2 つのまま
+- **R4 変更**: ルートを `apiResource('products.variants')->shallow()->only(['store','update','destroy'])` に（R3 の手書き 3 本と同じ URL）
+- Feature テスト 9 本。`php artisan test` 182 passed
