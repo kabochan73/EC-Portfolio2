@@ -385,3 +385,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 39c `lib/auth.ts` に `updateProfile` / `updatePassword`、`PUT /bff/me`・`PUT /bff/me/password`、スキーマ（パスワード変更も `new-password.ts` を使う）、`ProfileForm` / `PasswordForm`、`/account/profile`
 - 確認（CDP）: 住所 2 件追加（1 件目に自動で★）→ 会社を★に → 自宅を編集（千代田区 → 新宿区）→ 郵便番号の形式エラー → ★の会社を削除で自宅に★が移る。氏名を変更「保存しました。」→ 現在のパスワード違いで「The password is incorrect.」→ 正しく変更 → 古いパスワードのログイン 422・新しいパスワード 200。確認用ユーザーは削除
   - 確認方法の罠: `router.refresh()` の描き直しは初回コンパイルで数秒かかる → 一覧の件数やメッセージが変わるまで待つ形に（固定の sleep だと次の操作が先に走る）
+
+**Step 40 — 2026-10-16 チェックアウト（配送先 → 注文作成）**（3 コミット）
+- 40a 共通部品: `AddressFields`（住所の入力欄 7 つ。`AddressForm` とチェックアウトで使う）、`AmountSummary`（小計・送料・合計。`CartSummary`・マイページの注文詳細・チェックアウトで使う）
+  - **R4 変更**: R3 は入力欄 7 つを 2 か所、小計〜合計の表示を 3 か所以上に重複して書いていた
+- 40b `lib/orders.ts` の `createOrder`、`CreateOrderRequest` 型（API の入力なので types/order.ts に）、`POST /bff/orders`（`withSession`）。**R3 にあった使われない GET `/bff/orders` は作らない**
+- 40c `CheckoutClient`（CC）/ `AddressPicker`（表示だけ。"use client" 不要）/ `OrderReview`、`/checkout`（SC が住所録を取る）。Place Order で `/checkout/payment?order=...` へ（決済画面は Step 41）
+  - **R4 修正**: `OrderReview` の「買えない行」をカートと同じ `lineProblem` に（R3 は販売終了・売り切れだけで、在庫超過を見落としていた）。チェックアウトでも `useCartHydrated`（一瞬「空のカート」を出さない）
+  - ラジオ・チェックボックスを `accent-ink`（ブラウザ既定の青をやめてモノトーンに）
+- 確認（CDP）: 住所録が空 → 新しい住所の入力欄が開いた状態・空のまま押すと検証エラー → 新しい住所で注文 `EC-...-0001` → 住所録に保存され★・選択済みで表示 → 住所録の住所で 2 回目 `EC-...-0002`。DB: 1 件目は置き換えで cancelled（在庫を戻す）、2 件目は pending、在庫 4 → 2 → カートを 5 個にすると「在庫は 2 点までです」で Place Order が出ない。後片付けで 2 件目を `cancelIfPending`（在庫 4 に戻る）してユーザーを削除
