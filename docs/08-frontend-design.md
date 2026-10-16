@@ -302,6 +302,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 - ルートセグメントごとに `loading.tsx`（スケルトン）/ `error.tsx`（リトライ）/ `not-found.tsx`。商品詳細の 404 は `notFound()`。
 - 空状態の文言は `docs/01` 準拠。
 - 決済ページの `error.tsx` は「決済を開始できませんでした。カートに戻る」。
+- `error.tsx` は同じフォルダの **layout** のエラーは受けられない（1 つ上の error.tsx の担当）。`admin/layout.tsx` の `requireAdmin()` が Laravel につながらないときに備えて `app/error.tsx` を置く。`app/global-error.tsx` はルートレイアウト自体が落ちたときだけ（R4。2026-10-16 Step 49）
 
 ---
 

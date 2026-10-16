@@ -463,3 +463,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 修正**: Lookbook の key を画像の url に（R3 は配列の番号で、並べ替えると行の対応がずれることがあった）。確認で、追加した画像を先頭へ動かすと alt も一緒に動くのを確認
 - 確認（CDP）: Hero の見出しを保存 → トップにすぐ出る、Concept を空で保存 → 「本文を入力してください」、Lookbook に画像を追加 → 先頭へ → alt を入れて保存 → トップの順番も変わる、About の見出しを空 → zod のエラー → 直して保存 → トップに出る。最後に保存前の内容（バックアップ）を BFF で書き戻した
   - **自分の誤り（後片付け）**: 確認で上げた画像だけを消すつもりで「今の CMS の data に含まれないファイル」を消したが、data を `json_encode` した文字列で比べたため（`/` が `\/` になる）全部が未使用と判定され、Step 33 の確認用画像（Hero 1 枚・Lookbook 2 枚）まで消した。Lookbook 2 枚は商品 1 の画像と同じものだったのでバケット内でコピーし、Hero は Next.js の画像キャッシュ（`/_next/image` の w=1920）に残っていた元の画像を取り出して、同じキー（ファイル名）で戻した。DB は変えていない。差し替え中に作られた画像キャッシュは `.next/cache/images` ごと消した。消す前に「消す対象の一覧」を出して確かめるべきだった
+
+**Step 49 — 2026-10-16 仕上げ（エラー画面 + レスポンシブ）**（1 コミット）
+- `app/global-error.tsx`（ルートレイアウトが落ちたとき。自前の `<html><body>`）、`app/not-found.tsx`（どのグループにも当たらない URL）、`app/error.tsx`、`app/(shop)/error.tsx`、`app/admin/{error,not-found}.tsx`、`app/(shop)/(cart)/loading.tsx`、`checkout/payment/error.tsx`
+  - **R4 追加**: 決済ページの `error.tsx`（docs/08 §11「決済を開始できませんでした。カートに戻る」にあるのに R3 は作っていなかった）
+  - **R4 追加**: `app/error.tsx`。Laravel を止めて `/admin/orders` を開くと、`admin/error.tsx` ではなく `global-error` が出た。error.tsx は同じフォルダの layout のエラーを受けられず（1 つ上の担当）、`admin/layout.tsx` の `requireAdmin()` が落ちると `app/` まで上がるため。R3 にも同じ穴があった。docs/08 §11 に追記
+  - **R4 変更**: `global-error` は globals.css を読み込んで Tailwind のクラスで書く（R3 は style 属性に直書き）。各 error.tsx で `console.error(error)`
+- 確認（CDP）: 404 → `/no-such-page` は素の 404・`/products/no-such-product` はヘッダー付き・`/admin/products/99999` と `/admin/orders/EC-XXXX` はサイドバー付き（すべて HTTP 404）。backend を止めて `/admin/orders` → `app/error.tsx`、`/account/orders` → `(shop)/error.tsx`、`/checkout/payment?order=…` → 決済の error.tsx（Back to Cart）。390px でストア 11 ページ・管理画面 11 ページすべて scrollWidth 390（横スクロールなし）
+
+### フロントエンド完成（Step 31〜49）
