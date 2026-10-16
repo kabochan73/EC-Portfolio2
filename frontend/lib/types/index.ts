@@ -8,6 +8,7 @@
 //  - コンポーネントの props の型 → そのコンポーネントのファイルの中に書く
 // ─────────────────────────────────────────────────────────────
 
+export * from "./account";
 export * from "./api";
 export * from "./cart";
 export * from "./catalog";
