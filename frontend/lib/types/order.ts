@@ -52,3 +52,16 @@ export type OrderListItem = {
   item_count: number;
   placed_at: string | null;
 };
+
+/**
+ * POST /api/orders の本文（backend の StoreOrderRequest）。フォームそのものではなく、
+ * カートと配送先の選択から組み立てる API の入力なので、ここに置く（docs/08 §7）
+ */
+export type CreateOrderRequest = {
+  items: { variant_id: number; quantity: number }[];
+  /** 住所録の住所を使うとき */
+  address_id?: number;
+  /** 新しい住所を入力したとき（AddressFormValues と同じ形。is_default は送らない） */
+  address?: Omit<ShippingAddressSnapshot, "address_line2"> & { address_line2?: string | null };
+  save_address?: boolean;
+};

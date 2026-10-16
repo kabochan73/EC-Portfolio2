@@ -1,7 +1,13 @@
-import { ApiError, apiFetch } from "@/lib/api";
-import type { ApiCollection, ApiResource, OrderDetail, OrderListItem } from "@/lib/types";
+import { ApiError, apiFetch, bearerJson } from "@/lib/api";
+import type {
+  ApiCollection,
+  ApiResource,
+  CreateOrderRequest,
+  OrderDetail,
+  OrderListItem,
+} from "@/lib/types";
 
-// 注文の取得（サーバー専用。Server Component / BFF から）。注文の作成（createOrder）は Step 40 で足す。
+// 注文の作成・取得（サーバー専用。Server Component / BFF から）。
 
 /** GET /api/orders … 本人の注文一覧（新しい順・要約） */
 export async function getMyOrders(token: string): Promise<OrderListItem[]> {
@@ -25,4 +31,13 @@ export async function getMyOrder(token: string, orderNumber: string): Promise<Or
     }
     throw error;
   }
+}
+
+/**
+ * POST /api/orders … 配送先を確定して pending 注文を作成し、在庫を引き当てる。
+ * 同じユーザーの未決済注文は Laravel 側で置き換えられる。在庫不足・非公開は 422。
+ */
+export async function createOrder(token: string, payload: CreateOrderRequest): Promise<OrderDetail> {
+  const res = await apiFetch<ApiResource<OrderDetail>>("/api/orders", bearerJson(token, "POST", payload));
+  return res.data;
 }
