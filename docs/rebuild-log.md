@@ -369,3 +369,10 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 37b `ForgotPasswordForm`（成功・失敗に関わらず中立表示）、`ResetPasswordForm`、`/forgot-password` `/reset-password`
   - **R4 変更**: `/reset-password` の token / email は SC の page で読み、欠けていれば「リンクが正しくありません」をサーバーで出し分ける。フォームは props で受け取る（R3 は `useSearchParams` + Suspense）
 - 確認（CDP + Mailpit）: 申し込み → 中立メッセージ → メールのリンク → 確認用が違うと「パスワードが一致しません」→ 設定で `/login?reset=1`・「パスワードを変更しました」→ 新パスワードでログインして `/account` → 同じリンクの再利用は「This password reset token is invalid.」。確認用ユーザーとメールは削除
+
+**Step 38 — 2026-10-16 マイページ（注文履歴・注文詳細）**（2 コミット）
+- 38a `lib/types/order.ts`、`lib/orders.ts`（`getMyOrders` / `getMyOrder`。404 は null）、`OrderStatusBadge`、`ShippingAddress`
+  - **R4 修正**: 日時の表示に `timeZone: "Asia/Tokyo"` を付けた `formatDate` / `formatDateTime` を `lib/format.ts` に。R3 は timeZone なしの `toLocaleString` で、SC（サーバーのコンテナは UTC）だと 9 時間ずれていた。コンテナ内の node で `2026-10-15T23:00:00Z` → R3 の書き方「2026/10/15 23:00:00」/ R4「2026/10/16 8:00:00」を確認
+  - **R4 変更**: 日付の整形関数（R3 は一覧・詳細・管理画面のファイルごと）と配送先の表示（R3 は 3 か所）を共通化
+- 38b `AccountMenu` + `/account`、`OrderList` + `/account/orders`、`/account/orders/[number]`（他人・不明は `notFound()`、pending なら COMPLETE PAYMENT と直近の決済エラー）。すべて SC
+- 確認（CDP）: 確認用ユーザー s38 に pending（JST 10/16 8:00、決済エラー付き）/ paid / shipped と他人の注文を作成 → 一覧に 3 件・点数・合計・バッジ、詳細は「2026/10/16 8:00:00」・COMPLETE PAYMENT・「カードが拒否されました。」、他人の注文番号は 404
