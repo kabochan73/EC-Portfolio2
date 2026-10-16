@@ -124,3 +124,12 @@ export type AdminOrderDetail = Omit<OrderDetail, "payment"> & {
     refunded_at: string | null;
   } | null;
 };
+
+// Admin/CustomerResource（会員一覧・会員詳細。閲覧のみ）
+export type AdminCustomer = {
+  id: number;
+  name: string;
+  email: string;
+  orders_count: number;
+  joined_at: string | null;
+};

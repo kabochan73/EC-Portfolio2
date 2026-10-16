@@ -446,3 +446,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 変更**: 一覧は props + `router.refresh()`。422 は欄の下。Laravel は「サイズ・色の重複」を `size` に付けるので、編集フォーム（size は表示だけ）でも errors.size をフォームの下に出す（R3 はフォームの上に message だけ）
 - 確認（CDP）: 画像 2 枚アップロード → Primary / Hover・商品ページも同じ順、▼ で入れ替え → 商品ページの順も変わる、1 枚削除、名前を変えて保存 → パンくずと商品ページが変わる、slug 重複 → 欄の下、商品削除 → 一覧へ・商品ページ 404、存在しない id → 404。バリアント S・M を追加 → 商品ページに S・M、sku 重複 → 欄の下、S を色なしでもう一度 → 「このサイズ・色の組み合わせは既に登録されています。」、S の在庫を 0 → 商品ページで S が押せない、M を削除。確認用の商品は削除（バケットの画像も消えて元の 2 枚だけ）
   - ローカルでは操作 → 画面に反映まで 7〜8 秒かかった。Docker の VM が重く（CPU 66%）、Laravel の 1 回の呼び出しが約 0.8 秒、操作 1 回で 3〜4 回呼ぶため。コードの問題ではない
+
+**Step 47 — 2026-10-16 注文管理・会員**（2 コミット）
+- 47a `AdminOrderDetail` 型（利用者向けの `OrderDetail` + 顧客 + 詳しい決済情報）、`lib/admin/orders.ts`、BFF `PUT /bff/admin/orders/[number]/status`、`OrderStatusActions`（CC）、`/admin/orders`（SC。ステータス絞り込み + `Pagination`）、`/admin/orders/[number]`（SC。CC はボタンだけ）
+  - **R4 修正**: 日時を `formatDateTime`（日本時間）に（R3 は `toLocaleString` でサーバーの UTC のまま、9 時間ずれていた）
+  - **R4 修正**: キャンセルで在庫が戻ったら、商品一覧と明細の商品ページのキャッシュを消す（R3 は消さず、最大 10 分「売り切れ」のままのことがあった）
+  - **R4 変更**: 配送先・金額・バッジはストア側の部品を使う。キャンセルのボタンを状態ごとに（`Cancel Order` / `Cancel & Refund` / `Cancel`。R3 はどれも「Cancel Order」）。顧客の名前から会員詳細へリンク
+- 47b `AdminCustomer` 型、`lib/admin/customers.ts`、`/admin/customers`（SC。名前・メールの検索 + `Pagination`）、`/admin/customers/[id]`（会員の情報 + 注文履歴。`OrderTable` の顧客列なし）
+  - **R4 変更**: 登録日は `formatDate`（日本時間）。会員と注文履歴は `Promise.all` で同時に取る（R3 は順番に）
+- 確認（CDP。確認用の会員 + pending / paid / shipped の注文を tinker で作成）: pending を Cancel Order → cancelled・在庫 11 → 12、paid を Mark as Shipped → shipped・Mailpit に発送メール、shipped を Mark as Completed → 「これ以上変更できません」、completed → shipped を API に直接 → 422、存在しない注文番号 → 404。会員一覧・`q=S47` → 1 件・`q=nobody` → No customers found、注文詳細の顧客リンク → 会員詳細（注文 3 件・顧客列なし）、管理者の id と存在しない id → 404。在庫を戻し、確認用の会員と注文は削除
