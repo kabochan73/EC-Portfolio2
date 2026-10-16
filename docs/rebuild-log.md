@@ -438,3 +438,11 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 変更**: 422 は入力欄の下（`applyLaravelErrors`）。`size_chart.*` のエラーは欄と対応しないのでフォームの下に出す。`SizeChartEditor` は React 19 の「ref を props で受ける」書き方（R3 は forwardRef）
   - **R4 修正**: サイズ表の数値の `0` が捨てられていた（R3 は `n !== 0` で空欄を除こうとしていた）。空欄は文字列の段階で除く
 - 確認（CDP）: 一覧 16 件、`q=shirt` → 2 件、`category=accessories` → 4 件（select も Accessories のまま）、空で送信 → 7 項目に zod のエラー、slug 重複 → 欄の下に Laravel の 422、サイズ表つきで作成 → `/admin/products/{id}` へ移動・DB の size_chart は `{S:[66,52], M:[68,54]}`（空欄は詰まる）・care は null。確認用の商品は削除
+
+**Step 46 — 2026-10-16 商品の編集・画像・バリアント**（2 コミット）
+- 46a `/admin/products/[id]`（SC。商品とカテゴリを `Promise.all` で同時に取る。404 は notFound）、`EditProductForm`（`ProductForm` + 商品の削除）、`ProductImagesManager`（アップロード・▲▼・削除）、`lib/admin/productImages.ts`、BFF 3 本（`POST /bff/admin/products/[id]/images`・`PUT …/images/reorder`・`DELETE /bff/admin/product-images/[id]?product=`）
+  - **R4 変更**: 部品を並べるのは SC の page（R3 は `EditProductClient` という CC がまとめていた）。画像は props + `router.refresh()`（R3 は state に持って GET の BFF で取り直し）。並べ替えの BFF は 204（一覧を返さない）
+- 46b `adminVariant` スキーマ（新規・編集で 1 つ。`CreateVariantPayload` / `UpdateVariantPayload` は `z.infer` から）、`lib/admin/variants.ts`、BFF `POST /bff/admin/products/[id]/variants`・`PUT/DELETE /bff/admin/variants/[id]?product=`、`VariantForm`、`VariantsManager`
+  - **R4 変更**: 一覧は props + `router.refresh()`。422 は欄の下。Laravel は「サイズ・色の重複」を `size` に付けるので、編集フォーム（size は表示だけ）でも errors.size をフォームの下に出す（R3 はフォームの上に message だけ）
+- 確認（CDP）: 画像 2 枚アップロード → Primary / Hover・商品ページも同じ順、▼ で入れ替え → 商品ページの順も変わる、1 枚削除、名前を変えて保存 → パンくずと商品ページが変わる、slug 重複 → 欄の下、商品削除 → 一覧へ・商品ページ 404、存在しない id → 404。バリアント S・M を追加 → 商品ページに S・M、sku 重複 → 欄の下、S を色なしでもう一度 → 「このサイズ・色の組み合わせは既に登録されています。」、S の在庫を 0 → 商品ページで S が押せない、M を削除。確認用の商品は削除（バケットの画像も消えて元の 2 枚だけ）
+  - ローカルでは操作 → 画面に反映まで 7〜8 秒かかった。Docker の VM が重く（CPU 66%）、Laravel の 1 回の呼び出しが約 0.8 秒、操作 1 回で 3〜4 回呼ぶため。コードの問題ではない

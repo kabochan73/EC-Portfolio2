@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import EditProductForm from "@/components/admin/EditProductForm";
 import ProductImagesManager from "@/components/admin/ProductImagesManager";
+import VariantsManager from "@/components/admin/VariantsManager";
 import { fetchAdminCategories } from "@/lib/admin/categories";
 import { fetchAdminProduct } from "@/lib/admin/products";
 import { ApiError } from "@/lib/api";
@@ -15,7 +16,7 @@ type PageProps = { params: Promise<{ id: string }> };
 export const metadata: Metadata = { title: "Edit Product" };
 
 /**
- * 商品の編集（Server Component）。基本情報・画像・（Step 46b で）バリアントの 3 つの部品を並べる。
+ * 商品の編集（Server Component）。基本情報・画像・バリアントの 3 つの部品を並べる。
  * R4: 部品を並べるのは SC の page（R3 は EditProductClient という CC がまとめていた）。
  * 各部品は操作の後に router.refresh() するので、このページが取り直して props が新しくなる
  */
@@ -47,6 +48,8 @@ export default async function EditProductPage({ params }: PageProps) {
       <EditProductForm product={product} categories={categories} />
       <hr className="my-10 border-mist" />
       <ProductImagesManager productId={product.id} images={product.images} />
+      <hr className="my-10 border-mist" />
+      <VariantsManager productId={product.id} variants={product.variants} />
     </div>
   );
 }
