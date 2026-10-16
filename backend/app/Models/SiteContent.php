@@ -33,6 +33,24 @@ class SiteContent extends Model
         return $this->belongsTo(User::class, 'updated_by');
     }
 
+    /**
+     * 4 キーすべてを、保存値 > デフォルト の順で埋めて返す（docs/11）。
+     * top-level のキー単位で上書きするので、lookbook.images / about.blocks は保存値が丸ごと勝つ。
+     * 公開 API と管理 API の両方で使う（R4。R3 は同じ処理を 2 つの Controller に書いていた）
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function allWithDefaults(): array
+    {
+        $stored = static::query()->pluck('data', 'key');
+
+        return collect(self::KEYS)
+            ->mapWithKeys(fn (string $key) => [
+                $key => array_replace(self::defaults($key), $stored->get($key, [])),
+            ])
+            ->all();
+    }
+
     public static function isValidKey(string $key): bool
     {
         return in_array($key, self::KEYS, true);

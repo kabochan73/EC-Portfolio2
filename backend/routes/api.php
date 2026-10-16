@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Order\OrderController;
 use App\Http\Controllers\Api\Shop\CartController;
 use App\Http\Controllers\Api\Shop\CategoryController;
 use App\Http\Controllers\Api\Shop\ProductController;
+use App\Http\Controllers\Api\Shop\SiteContentController;
 use App\Http\Controllers\Api\Webhook\StripeController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -38,6 +39,9 @@ Route::get('/products/{slug}', [ProductController::class, 'show']);
 
 // カート明細の再検証（/cart・/checkout 表示時。docs/03-api.md）
 Route::get('/cart/validate', [CartController::class, 'validate']);
+
+// トップページの CMS コンテンツ（docs/11-cms.md）
+Route::get('/content', [SiteContentController::class, 'index']);
 
 // --- 認証（公開） ---
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
