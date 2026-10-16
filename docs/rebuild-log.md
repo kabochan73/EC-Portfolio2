@@ -422,3 +422,10 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 43c 最初は `/admin` に組み込んだが、**ユーザーの判断で `/admin/sales` に別ページとして分離**（サイドバーに Sales を追加。`/admin` は運用の数字と最近の注文だけ）。docs/05・08 も更新
 - 確認（CDP）: 今月・先月・2 か月前・キャンセルの試験注文（既存の注文も含めて期待値を手計算）→ KPI ¥99,500 / 5 件 / 今日 ¥47,500、日別は 31 本で 10/01 ¥24,000 = 50.53%・10/05 = 58.95%・10/16 = 100%（JST 10/01 00:30 の注文が 1 日に入る）、月別は 12 本で 8 月 12.06%・9 月 54.27%・10 月 100%、TOPS のランキングは T シャツ 4 個（先月 1 → 400%）→ ポロ 1 個 ¥21,000（先月 2 → 50%）→ ロングスリーブ 1 個 ¥16,000（—）→ オックスフォード 0。すべて手計算と一致
   - スマホの幅で日別ラベルの 30 と 31 がくっつく → 月末のラベルをやめて 1・5・…・30 に
+
+**Step 44 — 2026-10-16 カテゴリ管理**（2 コミット）
+- 44a `AdminCategory` 型、`lib/admin/categories.ts`、BFF `POST /bff/admin/categories`・`PUT/DELETE /bff/admin/categories/[id]`・`PUT /bff/admin/categories/reorder`（`withSession` + 成功時に `revalidateTag`。名前・slug の変更と削除は商品ページにも出るので `products` も消す）
+  - **R4 変更**: 一覧の GET の BFF は作らない（R3 は CC が自分で一覧を取り直していた）
+- 44b `adminCategorySchema`、`CategoryForm`（追加・編集で共用。`onSubmit` は Response を返し、422 は `applyLaravelErrors` で入力欄の下に出す）、`CategoryManager`（CC。一覧は props、操作後は `router.refresh()`、削除は `window.confirm`、▲▼ で全 id の順番を送る）、`/admin/categories`（SC）
+  - **R4 変更**: 一覧は SC が取って props で渡す（docs/08 §3.6）。slug 重複のエラーは欄の下（R3 はフォームの上に 1 行）
+- 確認（CDP）: 追加 → 末尾に出る、slug `tops` の重複 → 欄の下に「The slug has already been taken.」、Tops の名前変更 → トップページにすぐ反映（ISR のタグ無効化）、▲ で並べ替え、商品ありの削除 → 409「このカテゴリには商品が 4 件あります…」、空のカテゴリの削除。後片付けで名前を戻し、確認用カテゴリを削除。スマホは横スクロールなし（表だけ枠内）
