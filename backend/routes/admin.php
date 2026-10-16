@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\CategoryController;
 use App\Http\Controllers\Api\Admin\ProductController;
+use App\Http\Controllers\Api\Admin\ProductImageController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -20,3 +21,8 @@ Route::apiResource('categories', CategoryController::class)->except(['show']);
 
 // --- 商品（基本情報。未公開も含む） ---
 Route::apiResource('products', ProductController::class);
+
+// --- 商品画像（URL の形が apiResource の規約と合わないので手書き。reorder は静的パス） ---
+Route::post('/products/{product}/images', [ProductImageController::class, 'store']);
+Route::put('/products/{product}/images/reorder', [ProductImageController::class, 'reorder']);
+Route::delete('/product-images/{productImage}', [ProductImageController::class, 'destroy']);

@@ -246,3 +246,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - **R4 変更**: Store / Update を `ProductRequest` 1 つに（CategoryRequest と同じく slug unique の ignore だけが違った）。テストの `adminUser()` は共通の `admin()` に置き換え
 - `DeleteProduct` のバケット上の画像実体の掃除は、StorageService を作る Step 25 で足す
 - Feature テスト 9 本（在庫合計のテストは R3 でフレークしていたので 5 回連続で実行し安定を確認）。`php artisan test` 164 passed
+
+**Step 25 — 2026-10-16 商品画像管理 + StorageService**（3 コミット）
+- 25a `league/flysystem-aws-s3-v3` 導入、`StorageService`（`put` で `{prefix}/{ulid}.{ext}` キーを返す / delete / deleteMany / exists）、`DeleteProduct` にバケット実体の掃除を追加
+- 25b `Admin/ProductImage` の Create / Delete / Reorder Action（reorder はその商品の画像 ID を過不足なく指定させ、他商品混入は 422）、Request 2 つ
+- 25c `ProductImageController`、画像 3 ルート（URL が apiResource の規約と合わないので手書き）
+- **R4 修正**: 保存時の拡張子をクライアントのファイル名ではなく中身（MIME）から決める（`extension()`）。R3 は `photo.html` なら中身が JPEG でも `.html` で保存した → テスト追加
+- **R4 変更**: 削除は「DB の行 → バケット」の順（`DeleteProductImage` / `DeleteProduct`）。失敗しても残るのは参照されないファイルだけで、画像切れにならない
+- Feature テスト 9 本（R3 8 本 + 拡張子）。gd 非搭載なので `UploadedFile::fake()->create(..., 'image/jpeg')`
+- 確認: curl で**実 RustFS**に `tiny.html`（中身は JPEG）をアップロード → `.jpg` で保存・バケットに 134 bytes → 削除 204 → バケットから消えた。`php artisan test` 173 passed
