@@ -60,3 +60,12 @@ export type SalesDashboard = {
   monthly: MonthlyRevenue[];
   ranking: CategoryRanking[];
 };
+
+// Admin/CategoryResource（position と所属商品数を含む）
+export type AdminCategory = {
+  id: number;
+  name: string;
+  slug: string;
+  position: number;
+  products_count: number;
+};
