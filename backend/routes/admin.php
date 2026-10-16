@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\CategoryController;
+use App\Http\Controllers\Api\Admin\OrderController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\ProductImageController;
 use App\Http\Controllers\Api\Admin\VariantController;
@@ -34,3 +35,7 @@ Route::delete('/product-images/{productImage}', [ProductImageController::class, 
 Route::apiResource('products.variants', VariantController::class)
     ->shallow()
     ->only(['store', 'update', 'destroy']);
+
+// --- 注文（全ユーザー横断。{order} は注文番号）---
+Route::apiResource('orders', OrderController::class)->only(['index', 'show']);
+Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
