@@ -362,3 +362,10 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 36d `AccountLink`（CC。`/bff/me` を TanStack Query の `["session"]` で）を Header に、`LogoutButton`、`/account`（仮。名前と LOGOUT。メニューは Step 38・39）
 - 確認（CDP で操作）: `/register?redirect=//evil.example` で登録 → `/account`（localhost のまま）・ヘッダー Account・`document.cookie` に `ecp_token` が無い（HttpOnly）→ ログアウトで `/`・ヘッダー Login → パスワード違いで「These credentials do not match our records.」→ 正しいパスワードで `?redirect=/cart` に戻る。curl でも 422 / 200 + `Set-Cookie: ...; HttpOnly; SameSite=lax`。確認用ユーザーは削除
   - 確認方法の罠: 開いた直後（hydration 前）にボタンを押すとフォームの onSubmit が付いておらず何も起きない。初回表示はページのコンパイルで数秒かかる
+
+**Step 37 — 2026-10-16 パスワードリセットの画面**（2 コミット）
+- 37a `lib/auth.ts` に `sendPasswordReset` / `resetPassword`（`publicPost` で実 IP ヘッダー付き）、BFF `/bff/forgot-password` `/bff/reset-password`、スキーマ
+  - **R4 変更**: 「新しいパスワード + 確認用」のルール（8 文字以上・一致）を `lib/schemas/new-password.ts` に共通化し、会員登録・リセット（・Step 39 のパスワード変更）で使う（R3 は 3 スキーマに重複）
+- 37b `ForgotPasswordForm`（成功・失敗に関わらず中立表示）、`ResetPasswordForm`、`/forgot-password` `/reset-password`
+  - **R4 変更**: `/reset-password` の token / email は SC の page で読み、欠けていれば「リンクが正しくありません」をサーバーで出し分ける。フォームは props で受け取る（R3 は `useSearchParams` + Suspense）
+- 確認（CDP + Mailpit）: 申し込み → 中立メッセージ → メールのリンク → 確認用が違うと「パスワードが一致しません」→ 設定で `/login?reset=1`・「パスワードを変更しました」→ 新パスワードでログインして `/account` → 同じリンクの再利用は「This password reset token is invalid.」。確認用ユーザーとメールは削除
