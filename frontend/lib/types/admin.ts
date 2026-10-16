@@ -1,7 +1,7 @@
 // 管理画面（backend/app/Http/Resources/Admin/* と DashboardController）。
 
 import type { ProductImage, SizeChart } from "./catalog";
-import type { OrderStatus } from "./order";
+import type { OrderDetail, OrderStatus } from "./order";
 
 /** 注文の顧客（削除済みユーザーなら null） */
 export type AdminCustomerRef = { id: number | null; name: string | null; email: string | null };
@@ -112,4 +112,15 @@ export type AdminProduct = {
   created_at: string | null;
   images: ProductImage[];
   variants: AdminProductVariant[];
+};
+
+// Admin/OrderResource（注文詳細。利用者向けの OrderDetail に顧客と、詳しい決済情報を足したもの）
+export type AdminOrderDetail = Omit<OrderDetail, "payment"> & {
+  customer: AdminCustomerRef;
+  payment: {
+    status: string;
+    stripe_payment_intent_id: string | null;
+    last_error: string | null;
+    refunded_at: string | null;
+  } | null;
 };
