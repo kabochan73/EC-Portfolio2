@@ -394,3 +394,13 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 修正**: `OrderReview` の「買えない行」をカートと同じ `lineProblem` に（R3 は販売終了・売り切れだけで、在庫超過を見落としていた）。チェックアウトでも `useCartHydrated`（一瞬「空のカート」を出さない）
   - ラジオ・チェックボックスを `accent-ink`（ブラウザ既定の青をやめてモノトーンに）
 - 確認（CDP）: 住所録が空 → 新しい住所の入力欄が開いた状態・空のまま押すと検証エラー → 新しい住所で注文 `EC-...-0001` → 住所録に保存され★・選択済みで表示 → 住所録の住所で 2 回目 `EC-...-0002`。DB: 1 件目は置き換えで cancelled（在庫を戻す）、2 件目は pending、在庫 4 → 2 → カートを 5 個にすると「在庫は 2 点までです」で Place Order が出ない。後片付けで 2 件目を `cancelIfPending`（在庫 4 に戻る）してユーザーを削除
+
+**Step 41 — 2026-10-16 Stripe 決済（Payment Element）+ 完了ページ**（3 コミット）
+- Stripe のテストキー 3 つ（`sk_test` / `pk_test` / `whsec`）を R3 の `backend/.env` から R4 の `backend/.env` にコピー（ユーザー了承済み。git には入らない）。`whsec` は `stripe listen --print-secret` と一致を確認。publishable key は API が返すので frontend の env は不要
+- 41a `lib/checkout.ts`（`createPaymentIntent`、`bearerJson`）、`PaymentIntentResponse` 型、`GET /bff/orders/[number]`（完了画面のポーリング専用。§3.6 の理由 ③）、`useOrderStatusPolling`（2.5 秒間隔・最大 60 秒、pending でなくなったら停止）
+- 41b `StripeProvider`（`loadStripe` + `<Elements>`、モノトーンの appearance）、`PaymentForm`（`confirmPayment` → `return_url` = `/checkout/complete?order=`）、`/checkout/payment`（SC が注文を確認し PaymentIntent を作る。pending 以外は完了画面へ、503 / 409 はパネル表示）
+- 41c `CheckoutComplete`（paid でカートを空に / cancelled は失敗 / pending はポーリング、`redirect_status=failed` は再試行の案内）、`/checkout/complete`
+  - **R4 変更**: `redirect_status` は SC の page で読んで props で渡す（R3 は `useSearchParams` + Suspense）。金額は `formatYen`
+- 確認（本物の Stripe テストモード + `stripe listen --forward-to localhost:8000/api/stripe/webhook`）: 注文 `EC-…-0001`（¥12,800）→ 決済画面に Payment Element（iframe 4 つ）→ Stripe CLI で `stripe payment_intents confirm <pi> --payment-method pm_card_visa` → Webhook（payment_intent.succeeded ほか）すべて 200 → DB で paid・paid_at・payments=succeeded → 完了画面「ORDER CONFIRMED」・カート 0 → paid の注文で決済画面を開くと完了画面へ → Mailpit に注文確認メール
+  - 後片付けで paid → cancelled（管理者の操作と同じ `TransitionOrderStatus`）→ Stripe で返金（`charge.refunded` が届く）・`refunded_at`・在庫 3 → 4 に戻る、まで確認してから削除
+  - カード番号の入力は Stripe の iframe 内なので CDP では入れず、画面からの支払いはユーザーがブラウザで確認する
