@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 
 export * from "./account";
+export * from "./admin";
 export * from "./api";
 export * from "./cart";
 export * from "./catalog";

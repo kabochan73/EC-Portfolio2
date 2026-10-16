@@ -404,3 +404,13 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 確認（本物の Stripe テストモード + `stripe listen --forward-to localhost:8000/api/stripe/webhook`）: 注文 `EC-…-0001`（¥12,800）→ 決済画面に Payment Element（iframe 4 つ）→ Stripe CLI で `stripe payment_intents confirm <pi> --payment-method pm_card_visa` → Webhook（payment_intent.succeeded ほか）すべて 200 → DB で paid・paid_at・payments=succeeded → 完了画面「ORDER CONFIRMED」・カート 0 → paid の注文で決済画面を開くと完了画面へ → Mailpit に注文確認メール
   - 後片付けで paid → cancelled（管理者の操作と同じ `TransitionOrderStatus`）→ Stripe で返金（`charge.refunded` が届く）・`refunded_at`・在庫 3 → 4 に戻る、まで確認してから削除
   - カード番号の入力は Stripe の iframe 内なので CDP では入れず、画面からの支払いはユーザーがブラウザで確認する
+
+### ストアフロント完成（Step 31〜41）
+
+### Phase 7 — 管理画面（Step 42〜49）
+
+**Step 42 — 2026-10-16 管理画面のレイアウト + ダッシュボード**（2 コミット）
+- 42a `requireAdmin()`（未ログイン → /login、非 admin → /。本当の権限チェックは Laravel）、`app/admin/layout.tsx`（ストアの Header/Footer を持たない独自の枠。PC は左サイドバー・スマホは上に横スクロールのナビ）、`AdminNav`（CC。`usePathname` で現在のページを強調）
+  - **取り消した変更（自分の誤り）**: 「layout と page の両方で requireAdmin() を呼ぶので /api/me が 2 回呼ばれる」と考えて React の `cache()` で包んだが、backend のアクセスログで数えると cache なし（R3 と同じ）でも 1 回だった。Next.js は 1 回のサーバー描画の中の同じ GET の fetch を自動で 1 回にまとめる（Request Memoization）ため。cache() は外し、理由をコメントに残した
+- 42b `lib/types/admin.ts`（`AdminOrderListItem` / `DashboardStats`）、`lib/admin/dashboard.ts`、`StatCard`、`OrderTable`（最近の注文・注文一覧・顧客の注文履歴で共用。R4 は最初から部品として作る）、`/admin`（Orders / Pending / Low Stock / Sold Out + 最近の注文）
+- 確認（CDP）: 未ログイン → `/login?redirect=%2Fadmin`、一般ユーザー → `/`、admin → `/admin`。数字と最近の注文 3 件。スマホは横スクロールなし（表だけ枠内で横スクロール）
