@@ -8,3 +8,6 @@ export type SiteContent = {
     blocks: { label: string; heading: string; body: string; image_url: string | null }[];
   };
 };
+
+/** CMS のキー（hero / concept / lookbook / about）。管理画面の保存・画像アップロードの URL に使う */
+export type ContentKey = keyof SiteContent;
