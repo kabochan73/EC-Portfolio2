@@ -349,3 +349,16 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 35b `lib/cart-summary.ts`、`CartLine` / `CartSummary` / `CartView`（CC）、`/cart` の page.tsx は SC（metadata と見出しだけ。§3.6）
   - **R4 変更**: 送料・合計の計算は R3 では `summarizeCart`・`CartSummary`・カートページ本体の 3 か所、「この行は買えない」の判定は `CartLine` と `summarizeCart` の 2 か所にあった → `lineProblem()` / `currentUnitPrice()` / `summarizeCart()`（`untilFreeShipping` も返す）に集約。`CartSummary` は結果を表示するだけ（フックも状態も無いので "use client" も不要）
 - 確認（CDP で操作）: M ×10（在庫 4）→「在庫は 4 点までです。」・CHECKOUT 不可・¥120,000 / FREE → − を 6 回で 4 個 → 注意書きが消え CHECKOUT 可・+ は disabled → 空のカートは Your cart is empty。サーバーの HTML は Loading…（空の表示を出さない）。スマホ横スクロールなし
+
+**Step 36 — 2026-10-16 ログイン・会員登録・ログアウト**（4 コミット）
+- 36a `lib/types/account.ts`（User）、`lib/schemas/{login,register}.ts`、`lib/auth.ts`（サーバー専用。Cookie `ecp_token` は httpOnly / secure(本番) / sameSite=lax / 30 日、login / register / logout / me、`requireAuth`）、`middleware.ts`（Cookie の有無だけ）、`lib/login-redirect.ts`（戻り先をサイト内のパスに限る）
+  - **R4 修正**: middleware の戻り先に `?` 以降も含める（R3 は pathname だけで、`/checkout/payment?order=...` からログインし直すと `?order` が落ちた）。curl で `redirect=%2Fcheckout%2Fpayment%3Forder%3D...` を確認
+  - **R4 変更**: `publicPost()` / `bearer()` でヘッダーの組み立てを共通化（R3 は関数ごとに書いていた）。Payload 型は手書きせず `z.infer`（docs/08 §7）
+  - 詰まり: 起動後に追加した `middleware.ts` は dev サーバーが読み込まない → `docker compose restart frontend`
+- 36b BFF `/bff/login` `/bff/register` `/bff/logout` `/bff/me`（トークンはブラウザに返さず Cookie にだけ入れる）
+- 36c `Field`、`lib/form-errors.ts`（`applyLaravelErrors`）、`LoginForm` / `RegisterForm`、`/login` `/register`（SC が `searchParams` を読んで props で渡す。Suspense なし）
+  - **R4 修正（セキュリティ）**: 会員登録後の遷移も `resolveLoginRedirect` に通す。R3 は `searchParams.get("redirect") || "/account"` をそのまま `router.push` していて、`/register?redirect=//evil.example` で登録直後に外部サイトへ飛ばせた（オープンリダイレクト）
+  - **R4 変更**: Laravel の 422 をフィールドに割り当てるループを `applyLaravelErrors()` に（R3 は 5 フォームに重複）
+- 36d `AccountLink`（CC。`/bff/me` を TanStack Query の `["session"]` で）を Header に、`LogoutButton`、`/account`（仮。名前と LOGOUT。メニューは Step 38・39）
+- 確認（CDP で操作）: `/register?redirect=//evil.example` で登録 → `/account`（localhost のまま）・ヘッダー Account・`document.cookie` に `ecp_token` が無い（HttpOnly）→ ログアウトで `/`・ヘッダー Login → パスワード違いで「These credentials do not match our records.」→ 正しいパスワードで `?redirect=/cart` に戻る。curl でも 422 / 200 + `Set-Cookie: ...; HttpOnly; SameSite=lax`。確認用ユーザーは削除
+  - 確認方法の罠: 開いた直後（hydration 前）にボタンを押すとフォームの onSubmit が付いておらず何も起きない。初回表示はページのコンパイルで数秒かかる
