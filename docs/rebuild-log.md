@@ -261,3 +261,11 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - `Store/UpdateVariantRequest` は `withValidator` で size + color 複合ユニークを部分 UNIQUE と同条件で事前チェック（color null / not-null を出し分け）→ DB 例外にせずフォーム向け 422。作成と更新でルールが違う（size 必須か・自分を除外するか・エラーの付く項目）ので 2 つのまま
 - **R4 変更**: ルートを `apiResource('products.variants')->shallow()->only(['store','update','destroy'])` に（R3 の手書き 3 本と同じ URL）
 - Feature テスト 9 本。`php artisan test` 182 passed
+
+**Step 27 — 2026-10-16 注文管理 + 発送通知メール**（3 コミット）
+- 27a `SendOrderShippedJob` / `OrderShippedMail` / `mail/order-shipped`、`TransitionOrderStatus` に ship（shipped_at + 発送通知、`afterCommit`）を戻す
+- 27b `GET /api/admin/orders`（全ユーザー横断、`?status`（`Rule::enum`）・`?customer_id`、新しい順・20 件、`withSum` で item_count、顧客情報付き）/ `GET /api/admin/orders/{order}`（明細・配送先・顧客・決済）/ `PUT /api/admin/orders/{order}/status`（`UpdateOrderStatusRequest` は shipped / completed / cancelled のみ。pending / paid は Webhook だけ）
+  - **R4 変更**: ルートを `apiResource('orders')->only(['index','show'])` + status の 1 本に。ルートモデルバインディング（注文番号）で、R3 の「手で探して 404」×2 を削除
+  - **R4 変更**: 管理用 `OrderResource` は利用者用 `Order\OrderResource` を継承し、`customer` と詳しい `payment` だけを足す（R3 は配送先・金額などを 2 ファイルに重複して書いていた）
+- 27c Feature テスト 8 + 11 本（`statusAdmin()` / `orderAdmin()` は共通の `admin()` に）
+- 確認: curl で paid の注文を shipped に → shipped_at が入り、Mailpit に発送通知（宛先は購入者）、paid に戻そうとすると 422。`php artisan test` 201 passed
