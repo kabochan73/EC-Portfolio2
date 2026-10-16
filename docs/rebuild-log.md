@@ -275,3 +275,10 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - `GET /api/admin/stats` … `orders_count` / `revenue_total`（paid・shipped・completed の累計。月・日の売上は Step 30 の売上ダッシュボード API が担当するので役割は重ならない）/ `pending_count` / `sold_out_count`・`low_stock_count`（公開商品・全 variant 合算）/ `recent_orders`（直近 5）
 - **R4 変更**: 会員のルートを `apiResource('customers')->only(['index','show'])` に
 - Feature テスト 6 + 3 本。curl で Seeder データの stats（注文 0 件・全商品とも variant 合算では在庫あり → 売り切れ・残りわずかは 0）と、admin の id を customers で引くと 404 を確認。`php artisan test` 210 passed
+
+**Step 29 — 2026-10-16 軽量 CMS API**（2 コミット）
+- 29a 公開 `GET /api/content` … 4 キーを `SiteContent::defaults()` で補完（`array_replace` で top-level を埋め、`lookbook.images` / `about.blocks` は保存値が丸ごと勝つ）
+  - **R4 変更**: 補完処理を `SiteContent::allWithDefaults()` にまとめ、公開・管理の両 Controller から呼ぶ（R3 は同じ処理を 2 つの Controller に書いていた）
+- 29b 管理 `GET / PUT /api/admin/content(/{key})` … `UpdateSiteContent` Action（`updated_by`）、`UpdateSiteContentRequest` は key ごとに rules 出し分け。`POST /api/admin/content/{key}/images` … `content/{key}/{ulid}.ext` に保存、`{ url: "/media/..." }`。`{key}` は `whereIn` で不正なら 404
+  - 画像 URL は data JSON に `/media/...` 形式で直接持たせる（CMS の JSON は自由形式なので商品画像とは方式が違う）
+- Feature テスト 3 + 7 本（`contentAdmin()` は共通の `admin()` に）。`php artisan test` 220 passed

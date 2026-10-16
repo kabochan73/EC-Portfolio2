@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\OrderController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\ProductImageController;
+use App\Http\Controllers\Api\Admin\SiteContentController;
 use App\Http\Controllers\Api\Admin\VariantController;
+use App\Models\SiteContent;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -47,3 +49,8 @@ Route::apiResource('customers', CustomerController::class)->only(['index', 'show
 
 // --- ダッシュボード ---
 Route::get('/stats', [DashboardController::class, 'stats']);
+
+// --- CMS（トップページのコンテンツ。docs/11-cms.md）。{key} は 4 種以外 404 ---
+Route::get('/content', [SiteContentController::class, 'index']);
+Route::put('/content/{key}', [SiteContentController::class, 'update'])->whereIn('key', SiteContent::KEYS);
+Route::post('/content/{key}/images', [SiteContentController::class, 'uploadImage'])->whereIn('key', SiteContent::KEYS);
