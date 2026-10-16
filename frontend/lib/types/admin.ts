@@ -1,5 +1,6 @@
 // 管理画面（backend/app/Http/Resources/Admin/* と DashboardController）。
 
+import type { ProductImage, SizeChart } from "./catalog";
 import type { OrderStatus } from "./order";
 
 /** 注文の顧客（削除済みユーザーなら null） */
@@ -68,4 +69,47 @@ export type AdminCategory = {
   slug: string;
   position: number;
   products_count: number;
+};
+
+// Admin/ProductListResource（未公開も含む・在庫の合計つき）
+export type AdminProductListItem = {
+  id: number;
+  name: string;
+  slug: string;
+  price: number;
+  category: { id: number; name: string; slug: string };
+  is_published: boolean;
+  position: number;
+  total_stock: number;
+  variant_count: number;
+};
+
+// Admin/ProductVariantResource（公開側と違い、生の stock と sku を返す）
+export type AdminProductVariant = {
+  id: number;
+  size: string;
+  color: string | null;
+  sku: string | null;
+  stock: number;
+  position: number;
+};
+
+// Admin/ProductResource（編集ページ用。images / variants 込み）
+export type AdminProduct = {
+  id: number;
+  category_id: number;
+  name: string;
+  slug: string;
+  price: number;
+  description: string;
+  material: string;
+  care: string | null;
+  origin: string;
+  product_code: string;
+  size_chart: SizeChart | null;
+  is_published: boolean;
+  position: number;
+  created_at: string | null;
+  images: ProductImage[];
+  variants: AdminProductVariant[];
 };
