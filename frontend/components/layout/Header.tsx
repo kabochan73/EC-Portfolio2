@@ -1,13 +1,15 @@
 import Link from "next/link";
 
+import CartCount from "./CartCount";
+
 /**
  * ヘッダーは常に白背景・黒文字・下ボーダー固定（透過なし。docs/01-sitemap-pages.md）。
  * 中央ナビ・検索は置かない。ロゴ ＋ ACCOUNT ＋ CART のみ。
  * 項目が少ないのでモバイルもハンバーガーにせず同じ1行バーをそのまま使う。
  * fixed で常に画面上部に重ねる。本文側は (shop)/layout.tsx の pt-16 で高さを避ける。
  *
- * LOGIN / CART は今はただのリンク。ログイン状態の表示（AccountLink）は Step 36、
- * カートの点数（CartCount）は Step 34 で Client Component に差し替える。
+ * Header 自体は Server Component。CART (n) だけ Client Component（CartCount。カートは localStorage）。
+ * LOGIN は今はただのリンクで、ログイン状態の表示（AccountLink）は Step 36 で差し替える。
  */
 export default function Header() {
   return (
@@ -24,9 +26,7 @@ export default function Header() {
           <Link href="/login" className="transition-opacity hover:opacity-60">
             Login
           </Link>
-          <Link href="/cart" className="transition-opacity hover:opacity-60">
-            Cart
-          </Link>
+          <CartCount />
         </nav>
       </div>
     </header>

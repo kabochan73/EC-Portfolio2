@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 
+import CartHydration from "@/components/providers/CartHydration";
+
 import "./globals.css";
 
 // 「細いサンセリフ」の基調フォント。等幅は使わないので Geist_Mono は入れない（docs/08 §9）。
@@ -20,7 +22,7 @@ export const metadata: Metadata = {
 /**
  * 一番外側のシェル（Server Component）。<html><body> とフォント・globals だけを持つ。
  * 個別レイアウト（(shop) / admin）は children 側に入る。
- * TanStack Query の Provider とカートの復元（CartHydration）は、それを使う Step（34 / 36）で足す。
+ * TanStack Query の Provider は、それを使う Step（35）で足す。
  */
 export default function RootLayout({
   children,
@@ -29,7 +31,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <body className={`${geistSans.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${geistSans.variable} font-sans antialiased`}>
+        {/* カートストア（localStorage）の復元をマウント後に走らせる。何も描画しない。 */}
+        <CartHydration />
+        {children}
+      </body>
     </html>
   );
 }
