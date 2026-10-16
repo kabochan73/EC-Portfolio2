@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Order;
 
+use App\Actions\Order\CancelSupersededOrders;
 use App\Actions\Order\CreateOrder;
 use App\Actions\Order\CreateOrderInput;
 use App\Http\Controllers\Controller;
@@ -30,10 +31,15 @@ class OrderController extends Controller
 
     /**
      * POST /api/orders … 注文を pending で作成し在庫を引き当てる（docs/03-api.md）。
-     * 同じユーザーの未決済注文の置き換え（キャンセルして在庫を戻す）は Step 22 で足す。
+     * 同じユーザーの未決済注文は、新しい注文で置き換える（キャンセルして在庫を戻す）。
      */
-    public function store(StoreOrderRequest $request, CreateOrder $createOrder): JsonResponse
-    {
+    public function store(
+        StoreOrderRequest $request,
+        CancelSupersededOrders $cancelSupersededOrders,
+        CreateOrder $createOrder,
+    ): JsonResponse {
+        $cancelSupersededOrders->execute($request->user());
+
         $order = $createOrder->execute(
             user: $request->user(),
             input: CreateOrderInput::fromRequest($request),

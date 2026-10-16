@@ -215,3 +215,16 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 21c `tests/Support/StripeFixtures`（疑似イベント生成）、Feature テスト 7 本 + Unit `StripeServiceTest`（返金に idempotency key が付く。キーを外すと落ちることを確認）
 - 確認: 不正署名 400 / tinker で MarkOrderPaid → paid・ジョブ 1 件、同じイベント 2 回目でもジョブは増えない / Mailpit に注文確認メール。`php artisan test` 135 passed
 - 21d メールの見た目: `resources/views/vendor/mail/html/themes/default.css` を R3 のモノトーン版に（4 色のみ・影なし）。`vendor/mail/{html,text}/message.blade.php` を上書きし、ヘッダーのリンクを `app.url`（backend）→ `app.frontend_url` に（**R3 は backend の URL のままだった**。BFF 構成では backend はブラウザから見えない）。Mailpit でヘッダーが `http://localhost:3000`・背景 `#f4f4f4` を確認
+
+**Step 22 — 2026-10-16 支払いの失敗・キャンセル・返金 + 未決済注文の自動キャンセル**（3 コミット）
+- 22a `RestockOrder` / `TransitionOrderStatus`（state machine の唯一の入口。`execute` は管理操作用、`cancelIfPending` はロック後もまだ pending のときだけキャンセル = 期限切れ・置き換え用）/ `PaymentInProgressException`(409) / `InvalidOrderTransitionException`(422)
+  - **R4 修正**: `RestockOrder` も variant を id 昇順でまとめてロック（R3 は明細順に 1 行ずつ。CreateOrder と同時に走るとデッドロックがありえた）
+  - **R4 変更**: `cancelPaymentIntent` は `payments.status` が既に `canceled` なら Stripe に問い合わせない。発送通知メール（paid→shipped）は管理画面の Step で足す
+- 22b `HandlePaymentFailed`（`last_error` を記録、注文は pending のまま）/ `CancelOrderPayment` / `RecordRefund`（`refunded_at` が null のときだけ）を Webhook に接続
+  - **R4 変更**: `CancelOrderPayment` は R3 の「在庫戻し + cancelled」重複実装をやめ `TransitionOrderStatus::cancelIfPending` に委譲
+  - 自分のミス: 最初の版は注文の状態を見る前に payments を canceled に書き換えていて、遅れて届いた canceled で paid 注文の決済記録が壊れた。R3 のテストは決済記録を見ていなかったのですり抜けた → 注文をロックして pending のときだけ書き換える形に直し、テストに「paid なら payments も succeeded のまま」を追加（誤った版で落ちることを確認）
+- 22c `CancelSupersededOrders`（新しい注文の前に同じユーザーの pending をキャンセル）を `OrderController@store` に、`orders:expire-pending`（30 分超の pending をキャンセル・PI 取り消し・在庫戻し。決済処理中は残す）+ `routes/console.php`（5 分ごと、`sanctum:prune-expired` 毎日）
+- Feature テスト 4 + 6 本。tinker で ① PI 有効 → retrieve+cancel ② PI 取消済み → Stripe 呼ばない ③ paid→cancelled → refund 1 回・在庫戻し ④ cancelled→pending は例外、を確認。`schedule:list` に 2 件。`php artisan test` 145 passed
+
+### Phase 4 完了
+注文作成 → PaymentIntent → Webhook（成功 / 失敗 / キャンセル / 返金）→ 確認メール、未決済注文の自動キャンセル・置き換えまで揃った。`php artisan test` 145 passed。次は Phase 5（管理 API + CMS + 売上ダッシュボード API）。
