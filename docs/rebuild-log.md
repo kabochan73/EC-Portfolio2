@@ -315,3 +315,11 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 雛形のトップと `public/*.svg` を削除。`public/.gitkeep` を置く（R3 の本番ビルドで空の public が git に入らず `COPY /app/public` が失敗した罠を先回り）
 - スクショ: `--screenshot` 単体はウィンドウが 500px 程度より狭くならず、390px で撮ると右が切れる → CDP の `Emulation.setDeviceMetricsOverride` で撮るスクリプト（scratchpad の `shot.mjs`）を用意。PC 1280・スマホ 390 とも横スクロールなし（`scrollWidth` = 幅）
 - 確認: `tsc` / `lint` パス、`/` 200・title `EC-PORTFOLIO`
+
+**Step 32 — 2026-10-16 データ取得層（ISR）+ 商品カード + トップのカテゴリ**（2 コミット）
+- 32a `lib/types.ts`（R4 は使う Step ごとに型を足す。今回はカタログの分）、`lib/revalidate.ts`（タグ `products` / `product:{slug}` / `categories` / `content` と保険の再検証間隔）、`lib/categories.ts` / `lib/products.ts`（`apiFetch` に `next: { tags, revalidate }`）
+  - **R4 追加**: `lib/format.ts` の `formatYen()`（R3 は `¥{price.toLocaleString("ja-JP")}` を 28 か所に直書き）
+- 32b `ProductMedia`（NO IMAGE・ホバーで 2 枚目、JS 不要の `group-hover`）、`ProductCard`（NEW / LOW STOCK / SOLD OUT バッジ）、`CategoryGrid`（カテゴリごとに全公開商品、0 件のカテゴリは出さない）、トップを CategoryGrid に
+- すべて SC（§3.6）
+- 確認: `tsc` / `lint` パス、16 商品が NO IMAGE + NEW で並ぶ。**ISR**: frontend を再起動してキャッシュを空にした後、1 回目は Laravel に 2 本（products・categories）、2・3 回目は 0 本（backend の nginx アクセスログで計数）。`.next/cache/fetch-cache` のファイルを消すだけでは dev サーバーのメモリ上のキャッシュが残る点に注意
+- スクショ: PC 4 列 / スマホ 2 列、横スクロールなし。LOW STOCK / SOLD OUT は Seeder の商品が variant 合算ではどれも在庫ありなので出ない（表示は在庫を変える Step で確認）

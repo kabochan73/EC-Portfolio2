@@ -1,12 +1,18 @@
+import CategoryGrid from "@/components/home/CategoryGrid";
+import { getCategories } from "@/lib/categories";
+import { getProducts } from "@/lib/products";
+
 /**
- * トップページ（Server Component）。Step 31 は共通レイアウトの確認用の仮の中身。
- * Step 32 で商品一覧（CategoryGrid）、Step 33 で CMS セクション（Hero / Concept / Lookbook / About）に置き換える。
+ * トップページ（Server Component・ISR）。セクション順は docs/01-sitemap-pages.md 通り:
+ *   Hero → BrandConcept → Lookbook → CategoryGrid → AboutSection
+ * Step 32 は CategoryGrid（商品データ駆動）だけ。CMS 駆動の 4 セクションは Step 33 で足す。
  */
-export default function HomePage() {
+export default async function HomePage() {
+  const [categories, products] = await Promise.all([getCategories(), getProducts()]);
+
   return (
-    <section className="mx-auto flex min-h-[60vh] max-w-6xl flex-col items-center justify-center px-6 text-center">
-      <p className="text-xs tracking-[0.3em] text-graphite uppercase">Coming soon</p>
-      <h1 className="mt-4 text-2xl font-medium tracking-[0.2em] uppercase">EC-PORTFOLIO</h1>
-    </section>
+    <div>
+      <CategoryGrid categories={categories} products={products} />
+    </div>
   );
 }
