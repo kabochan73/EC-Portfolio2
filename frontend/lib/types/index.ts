@@ -13,3 +13,4 @@ export * from "./api";
 export * from "./cart";
 export * from "./catalog";
 export * from "./cms";
+export * from "./order";
