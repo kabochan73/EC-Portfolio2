@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import AmountSummary from "@/components/order/AmountSummary";
 import OrderStatusBadge from "@/components/order/OrderStatusBadge";
 import ShippingAddress from "@/components/order/ShippingAddress";
 import { requireAuth } from "@/lib/auth";
@@ -73,20 +74,9 @@ export default async function OrderDetailPage({ params }: PageProps) {
         ))}
       </section>
 
-      <dl className="mt-6 space-y-2 text-sm">
-        <div className="flex justify-between">
-          <dt className="tracking-widest text-graphite uppercase">Subtotal</dt>
-          <dd>{formatYen(order.subtotal)}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="tracking-widest text-graphite uppercase">Shipping</dt>
-          <dd>{order.shipping_fee === 0 ? "FREE" : formatYen(order.shipping_fee)}</dd>
-        </div>
-        <div className="flex justify-between border-t border-ink pt-2 text-base">
-          <dt className="tracking-widest uppercase">Total</dt>
-          <dd>{formatYen(order.total)}</dd>
-        </div>
-      </dl>
+      <div className="mt-6">
+        <AmountSummary subtotal={order.subtotal} shipping={order.shipping_fee} total={order.total} />
+      </div>
 
       <section className="mt-12 border-t border-ink pt-6">
         <h2 className="mb-3 text-[11px] tracking-widest text-graphite uppercase">Shipping Address</h2>

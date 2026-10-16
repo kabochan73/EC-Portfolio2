@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 
-import Field from "@/components/ui/Field";
+import AddressFields from "@/components/account/AddressFields";
 import { applyLaravelErrors } from "@/lib/form-errors";
 import { addressSchema, type AddressFormValues } from "@/lib/schemas/address";
 import type { Address } from "@/lib/types";
@@ -60,16 +60,10 @@ export default function AddressForm({ address, onSubmit, onSaved, onCancel }: Pr
 
   return (
     <form onSubmit={handleSubmit(submit)} noValidate className="space-y-5 border border-ink p-6">
-      <Field label="宛名" id="recipient_name" error={errors.recipient_name?.message} {...register("recipient_name")} />
-      <Field label="郵便番号" id="postal_code" placeholder="123-4567" error={errors.postal_code?.message} {...register("postal_code")} />
-      <Field label="都道府県" id="prefecture" error={errors.prefecture?.message} {...register("prefecture")} />
-      <Field label="市区町村" id="city" error={errors.city?.message} {...register("city")} />
-      <Field label="番地" id="address_line1" error={errors.address_line1?.message} {...register("address_line1")} />
-      <Field label="建物・部屋番号（任意）" id="address_line2" error={errors.address_line2?.message} {...register("address_line2")} />
-      <Field label="電話番号" id="phone" error={errors.phone?.message} {...register("phone")} />
+      <AddressFields register={register} errors={errors} />
 
       <label className="flex items-center gap-2 text-xs tracking-widest text-graphite uppercase">
-        <input type="checkbox" {...register("is_default")} />
+        <input type="checkbox" className="accent-ink" {...register("is_default")} />
         デフォルトにする
       </label>
 
