@@ -429,3 +429,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 44b `adminCategorySchema`、`CategoryForm`（追加・編集で共用。`onSubmit` は Response を返し、422 は `applyLaravelErrors` で入力欄の下に出す）、`CategoryManager`（CC。一覧は props、操作後は `router.refresh()`、削除は `window.confirm`、▲▼ で全 id の順番を送る）、`/admin/categories`（SC）
   - **R4 変更**: 一覧は SC が取って props で渡す（docs/08 §3.6）。slug 重複のエラーは欄の下（R3 はフォームの上に 1 行）
 - 確認（CDP）: 追加 → 末尾に出る、slug `tops` の重複 → 欄の下に「The slug has already been taken.」、Tops の名前変更 → トップページにすぐ反映（ISR のタグ無効化）、▲ で並べ替え、商品ありの削除 → 409「このカテゴリには商品が 4 件あります…」、空のカテゴリの削除。後片付けで名前を戻し、確認用カテゴリを削除。スマホは横スクロールなし（表だけ枠内）
+
+**Step 45 — 2026-10-16 商品の一覧・新規作成**（2 コミット）
+- 45a `ApiPaginated`、`AdminProductListItem` / `AdminProductVariant` / `AdminProduct` 型、`adminProductSchema` + `AdminProductPayload`、`lib/admin/products.ts`（`revalidateProductCaches` は Step 46 の画像・バリアントの BFF 用）、BFF `POST /bff/admin/products`・`PUT/DELETE /bff/admin/products/[id]`
+  - **R4 変更**: GET の BFF は作らない（R3 は画像・バリアントの部品の取り直し用）。`AdminProductPayload` は types.ts に手書きせず「`z.infer` + サイズ表」で作る（docs/08 §7）
+  - **R4 修正**: slug を変えたとき、変更前の slug の商品ページのキャッシュも消す（R3 は新しい slug だけ消していたので、古い URL がキャッシュから出続けることがあった）。curl で旧 URL が 404 になるのを確認
+- 45b `/admin/products`（SC。検索・カテゴリ・ページは URL のクエリだけ、`<form method="get">` と Link）、`Pagination`（SC。注文・会員の一覧でも使う。R4 で部品化）、`ProductForm`（新規・編集で共用）、`SizeChartEditor`、`NewProductForm`（作れたら編集ページへ）、`/admin/products/new`
+  - **R4 変更**: 422 は入力欄の下（`applyLaravelErrors`）。`size_chart.*` のエラーは欄と対応しないのでフォームの下に出す。`SizeChartEditor` は React 19 の「ref を props で受ける」書き方（R3 は forwardRef）
+  - **R4 修正**: サイズ表の数値の `0` が捨てられていた（R3 は `n !== 0` で空欄を除こうとしていた）。空欄は文字列の段階で除く
+- 確認（CDP）: 一覧 16 件、`q=shirt` → 2 件、`category=accessories` → 4 件（select も Accessories のまま）、空で送信 → 7 項目に zod のエラー、slug 重複 → 欄の下に Laravel の 422、サイズ表つきで作成 → `/admin/products/{id}` へ移動・DB の size_chart は `{S:[66,52], M:[68,54]}`（空欄は詰まる）・care は null。確認用の商品は削除
