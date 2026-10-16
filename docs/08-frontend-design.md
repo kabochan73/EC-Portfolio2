@@ -247,14 +247,22 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 ---
 
-## 7. 型（`lib/types.ts`）
+## 7. 型（R4 で置き場所のルールを変更。2026-10-16 ユーザーと決定）
 
-- `backend/app/Http/Resources/*` と 1:1。Resource を変えたらここも直す（コメントで対応ファイル名）。
-- `ApiResource<T> = { data: T }` / `ApiCollection<T> = { data: T[] }`。
-- 1関数専用の入力型（`LoginPayload` など）も全部ここ。`.ts`/`.tsx` に `type X = {...}` を直書きしない。
-- `OrderStatus` / `StockStatus` は `backend/app/Enums/*` と一致（`'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled'`）。
+型は「種類」ごとに置き場所を決める。「全部を 1 か所に」はしない。
+
+| 種類 | 置き場所 |
+|---|---|
+| **API のレスポンスの型** | `lib/types/` に領域ごと（`api.ts` / `catalog.ts` / `cms.ts` / 今後 `account.ts` / `order.ts` / `admin.ts`）。`lib/types/index.ts` で再エクスポートするので、使う側は `import type { ... } from "@/lib/types"` のまま |
+| **フォームの入力の型** | `lib/schemas/*.ts` で `z.infer<typeof schema>` から作るだけ。手書きの `XxxPayload` は作らない |
+| **コンポーネントの props の型** | そのコンポーネントのファイルの中 |
+
+- API のレスポンスの型は `backend/app/Http/Resources/*` と 1:1。Resource を変えたらここも直す（コメントで対応ファイル名）。
+- `ApiResource<T> = { data: T }` / `ApiCollection<T> = { data: T[] }`（`api.ts`）。
+- `OrderStatus` / `StockStatus` は `backend/app/Enums/*` と一致。
 - 決済系: `PaymentIntentResponse = { client_secret: string; publishable_key: string }`、`OrderDetail` に `payment?: { status: string; last_error: string | null }`。
 - CMS: `SiteContent = { hero: {...}; concept: {...}; lookbook: {...}; about: {...} }`（`docs/11`）。
+- R3 との違い: R3 は 370 行の `lib/types.ts` 1 ファイルにショップ・会員・注文・管理・入力の型が混在し、入力の型は `types.ts` の `LoginPayload` と `schemas` の `LoginFormValues`（`z.infer`）が二重にあった。props の型は R3 でもコンポーネント内に書いていた（docs のルールと実装がずれていた）
 
 ---
 

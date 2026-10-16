@@ -323,3 +323,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - すべて SC（§3.6）
 - 確認: `tsc` / `lint` パス、16 商品が NO IMAGE + NEW で並ぶ。**ISR**: frontend を再起動してキャッシュを空にした後、1 回目は Laravel に 2 本（products・categories）、2・3 回目は 0 本（backend の nginx アクセスログで計数）。`.next/cache/fetch-cache` のファイルを消すだけでは dev サーバーのメモリ上のキャッシュが残る点に注意
 - スクショ: PC 4 列 / スマホ 2 列、横スクロールなし。LOW STOCK / SOLD OUT は Seeder の商品が variant 合算ではどれも在庫ありなので出ない（表示は在庫を変える Step で確認）
+
+**Step 33 — 2026-10-16 トップの CMS セクション + 画像配信**（2 コミット）
+- 33a `lib/content.ts`（`GET /api/content`、タグ `content`）、`SiteContent` 型、`app/media/[...key]/route.ts`（S3 `GetObject` プロキシ、`forcePathStyle`、`Cache-Control: public, max-age=31536000, immutable`）
+  - **R4 追加**: `/media` で配信するキーを `products/` と `content/` の下に限定（R3 はバケットのどのキーでも読めた）。`..` も 404
+- 33b `Hero`（CMS の背景画像 + 見出し）/ `BrandConcept` / `Lookbook`（横スクロール、0 枚なら出さない）/ `AboutSection`（左右交互）。トップは Hero → Concept → Lookbook → CategoryGrid → About
+  - **R4 修正**: Hero の高さを `h-[calc(100svh-4rem)]` に（R3 は `h-screen` で、固定ヘッダー 64px 分だけ最初の表示からはみ出していた）。スマホのスクショで Hero の下端が画面下端ぴったり
+- 詰まり: `tsc` が `.next/types/validator.ts` で「ルートは /bff/health しか無い」前提の型エラー → 開発サーバーが新しいルートを読み込む前に生成された古い型。`/media` に 1 回アクセスしてから再実行で解消
+- **R4 変更（ユーザーと決定）**: 型の置き場所を種類ごとに。`lib/types.ts` → `lib/types/`（`api` / `catalog` / `cms` + `index.ts` で再エクスポート。import パスは `@/lib/types` のまま）。フォームの入力の型は `z.infer` だけ（手書きの Payload を作らない）、props はコンポーネント内。`docs/08` §7 を書き直し
+- 確認: 管理 API で商品 1 に画像 2 枚・Hero と Lookbook に CMS 画像をアップロード → `/media/...` 200 `image/jpeg`・1 年キャッシュ、トップに表示。`/media/secret/...` と `..` は 404
