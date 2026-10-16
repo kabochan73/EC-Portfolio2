@@ -6,6 +6,7 @@ use App\Actions\Order\RestockOrder;
 use App\Enums\OrderStatus;
 use App\Exceptions\InvalidOrderTransitionException;
 use App\Exceptions\PaymentInProgressException;
+use App\Jobs\SendOrderShippedJob;
 use App\Models\Order;
 use App\Services\StripeService;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ use Stripe\Exception\InvalidRequestException;
  *    （取り消さないと、キャンセル後にユーザーが支払いを完了できてしまう）
  *  - paid→cancelled: Stripe 返金 + 在庫を戻す
  *  - shipped→cancelled: 返品扱い。在庫は戻さない（手動対応前提）
- *  - paid→shipped: shipped_at（発送通知メールは管理画面の Step で足す）
+ *  - paid→shipped: shipped_at + 発送通知メール
  *  - shipped→completed: 副作用なし
  */
 final class TransitionOrderStatus
@@ -72,6 +73,7 @@ final class TransitionOrderStatus
 
         match ($to) {
             OrderStatus::Cancelled => $this->cancel($order, $from),
+            OrderStatus::Shipped => $this->ship($order),
             default => null,
         };
 
@@ -133,6 +135,12 @@ final class TransitionOrderStatus
         }
 
         $order->payment->update(['status' => $intent->status]);
+    }
+
+    private function ship(Order $order): void
+    {
+        // コミット後に積む（MarkOrderPaid と同じ理由）
+        SendOrderShippedJob::dispatch($order->id)->afterCommit();
     }
 
     /**
