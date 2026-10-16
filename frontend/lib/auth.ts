@@ -138,6 +138,8 @@ export async function requireAuth(redirectTo: string): Promise<AuthResult> {
   }
 
   try {
+    // 管理画面は layout と page の両方で requireAdmin() を呼ぶが、Next.js は 1 回のサーバー描画の中の
+    // 同じ GET の fetch を自動で 1 回にまとめる（Request Memoization）ので、/api/me は 1 回しか呼ばれない
     const user = await fetchCurrentUser(token);
     return { user, token };
   } catch (error) {
@@ -146,4 +148,19 @@ export async function requireAuth(redirectTo: string): Promise<AuthResult> {
     }
     throw error;
   }
+}
+
+/**
+ * 要管理者権限の Server Component（/admin 系）の先頭で呼ぶ。
+ * 未ログインは /login へ、ログイン済みだが admin でなければ / へ戻す（docs/05-admin.md）。
+ * 本当の権限チェックは Laravel の admin ミドルウェア（ここは画面の出し分け）
+ */
+export async function requireAdmin(redirectTo: string): Promise<AuthResult> {
+  const result = await requireAuth(redirectTo);
+
+  if (result.user.role !== "admin") {
+    redirect("/");
+  }
+
+  return result;
 }
