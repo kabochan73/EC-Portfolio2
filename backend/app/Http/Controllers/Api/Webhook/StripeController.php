@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api\Webhook;
 
+use App\Actions\Payment\CancelOrderPayment;
+use App\Actions\Payment\HandlePaymentFailed;
 use App\Actions\Payment\MarkOrderPaid;
+use App\Actions\Payment\RecordRefund;
 use App\Http\Controllers\Controller;
 use App\Models\StripeEvent;
 use App\Services\StripeService;
@@ -38,7 +41,9 @@ class StripeController extends Controller
         try {
             match ($event->type) {
                 'payment_intent.succeeded' => app(MarkOrderPaid::class)->execute($event),
-                // payment_failed / canceled / charge.refunded は Step 22 で足す
+                'payment_intent.payment_failed' => app(HandlePaymentFailed::class)->execute($event),
+                'payment_intent.canceled' => app(CancelOrderPayment::class)->execute($event),
+                'charge.refunded' => app(RecordRefund::class)->execute($event),
                 default => null, // 未対応イベントは受け流す
             };
         } catch (Throwable $e) {
