@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 
 import CartHydration from "@/components/providers/CartHydration";
+import QueryProvider from "@/components/providers/QueryProvider";
 
 import "./globals.css";
 
@@ -22,7 +23,6 @@ export const metadata: Metadata = {
 /**
  * 一番外側のシェル（Server Component）。<html><body> とフォント・globals だけを持つ。
  * 個別レイアウト（(shop) / admin）は children 側に入る。
- * TanStack Query の Provider は、それを使う Step（35）で足す。
  */
 export default function RootLayout({
   children,
@@ -32,9 +32,11 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${geistSans.variable} font-sans antialiased`}>
-        {/* カートストア（localStorage）の復元をマウント後に走らせる。何も描画しない。 */}
-        <CartHydration />
-        {children}
+        <QueryProvider>
+          {/* カートストア（localStorage）の復元をマウント後に走らせる。何も描画しない。 */}
+          <CartHydration />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );
