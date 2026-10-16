@@ -2,7 +2,7 @@
 // 認証まわりのサーバー側専用ヘルパー（Route Handler / Server Component から使う）。
 // - Cookie 管理: トークンは httpOnly Cookie に入れ、ブラウザの JS からは触れない
 // - Laravel 呼び出し: app/bff/**/route.ts を薄く保てるよう実処理はここに置く
-// プロフィール更新・パスワード変更・パスワードリセットは、それを使う Step（37 / 39）で足す。
+// プロフィール更新・パスワード変更は、それを使う Step 39 で足す。
 // ─────────────────────────────────────────────────────────────
 
 import { cookies, headers } from "next/headers";
@@ -11,8 +11,10 @@ import type { NextResponse } from "next/server";
 
 import { ApiError, apiFetch } from "@/lib/api";
 import { SESSION_COOKIE_NAME } from "@/lib/constants";
+import type { ForgotPasswordFormValues } from "@/lib/schemas/forgotPassword";
 import type { LoginFormValues } from "@/lib/schemas/login";
 import type { RegisterFormValues } from "@/lib/schemas/register";
+import type { ResetPasswordFormValues } from "@/lib/schemas/resetPassword";
 import type { ApiResource, User } from "@/lib/types";
 
 const THIRTY_DAYS_SECONDS = 60 * 60 * 24 * 30;
@@ -99,6 +101,20 @@ export async function logoutUser(token: string): Promise<void> {
 export async function fetchCurrentUser(token: string): Promise<User> {
   const result = await apiFetch<ApiResource<User>>("/api/me", { headers: bearer(token) });
   return result.data;
+}
+
+/** POST /api/forgot-password。存在の有無に関わらず常に成功（中立メッセージ） */
+export async function sendPasswordReset(
+  payload: ForgotPasswordFormValues,
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/api/forgot-password", await publicPost(payload));
+}
+
+/** POST /api/reset-password。失敗（無効/期限切れトークン）は 422 { errors: { email } } */
+export async function resetPassword(
+  payload: ResetPasswordFormValues & { token: string; email: string },
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>("/api/reset-password", await publicPost(payload));
 }
 
 /**
