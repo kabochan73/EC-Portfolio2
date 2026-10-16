@@ -269,3 +269,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 変更**: 管理用 `OrderResource` は利用者用 `Order\OrderResource` を継承し、`customer` と詳しい `payment` だけを足す（R3 は配送先・金額などを 2 ファイルに重複して書いていた）
 - 27c Feature テスト 8 + 11 本（`statusAdmin()` / `orderAdmin()` は共通の `admin()` に）
 - 確認: curl で paid の注文を shipped に → shipped_at が入り、Mailpit に発送通知（宛先は購入者）、paid に戻そうとすると 422。`php artisan test` 201 passed
+
+**Step 28 — 2026-10-16 会員一覧・詳細 + ダッシュボード統計**
+- `GET /api/admin/customers`（`role=customer`、`withCount('orders')`、`?q` name/email ilike、20 件）/ `GET /api/admin/customers/{customer}`（管理者の id は 404。注文一覧は `/admin/orders?customer_id=`）
+- `GET /api/admin/stats` … `orders_count` / `revenue_total`（paid・shipped・completed の累計。月・日の売上は Step 30 の売上ダッシュボード API が担当するので役割は重ならない）/ `pending_count` / `sold_out_count`・`low_stock_count`（公開商品・全 variant 合算）/ `recent_orders`（直近 5）
+- **R4 変更**: 会員のルートを `apiResource('customers')->only(['index','show'])` に
+- Feature テスト 6 + 3 本。curl で Seeder データの stats（注文 0 件・全商品とも variant 合算では在庫あり → 売り切れ・残りわずかは 0）と、admin の id を customers で引くと 404 を確認。`php artisan test` 210 passed

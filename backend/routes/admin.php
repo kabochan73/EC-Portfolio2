@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\Admin\CategoryController;
+use App\Http\Controllers\Api\Admin\CustomerController;
+use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\OrderController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\ProductImageController;
@@ -39,3 +41,9 @@ Route::apiResource('products.variants', VariantController::class)
 // --- 注文（全ユーザー横断。{order} は注文番号）---
 Route::apiResource('orders', OrderController::class)->only(['index', 'show']);
 Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+
+// --- 会員（閲覧のみ。管理者の id は 404）---
+Route::apiResource('customers', CustomerController::class)->only(['index', 'show']);
+
+// --- ダッシュボード ---
+Route::get('/stats', [DashboardController::class, 'stats']);
