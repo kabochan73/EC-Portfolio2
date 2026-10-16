@@ -376,3 +376,12 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 変更**: 日付の整形関数（R3 は一覧・詳細・管理画面のファイルごと）と配送先の表示（R3 は 3 か所）を共通化
 - 38b `AccountMenu` + `/account`、`OrderList` + `/account/orders`、`/account/orders/[number]`（他人・不明は `notFound()`、pending なら COMPLETE PAYMENT と直近の決済エラー）。すべて SC
 - 確認（CDP）: 確認用ユーザー s38 に pending（JST 10/16 8:00、決済エラー付き）/ paid / shipped と他人の注文を作成 → 一覧に 3 件・点数・合計・バッジ、詳細は「2026/10/16 8:00:00」・COMPLETE PAYMENT・「カードが拒否されました。」、他人の注文番号は 404
+
+**Step 39 — 2026-10-16 住所録・プロフィール編集**（3 コミット）
+- 39a `lib/bff.ts` の `withSession()`（Cookie のトークン → 無ければ 401 → handler → ApiError は同じ形で中継）と `noContent()`、`lib/api.ts` に `bearer()` / `bearerJson()`、`/bff/me` を書き換え、`Address` 型、`lib/addresses.ts`、住所の BFF（POST / PUT / DELETE / default）
+  - **R4 変更**: ログインが必要な BFF の定型 10 行を `withSession()` に（R3 は全ファイルに重複）。住所の一覧取得用の GET `/bff/addresses` は作らない（§3.6）
+- 39b `lib/schemas/address.ts`、`AddressForm`（`onSubmit` は Response を返し、エラーの割り当てはフォームが `applyLaravelErrors` で行う）、`AddressBook`（CC）、`/account/addresses`（SC が一覧を取る）
+  - **R4 変更**: 操作の後は `router.refresh()`（`useTransition` で描き直し中は薄く表示）。R3 は TanStack Query の initialData + 自前の取り直し。住所の表示は Step 38 の `ShippingAddress` を使い回す
+- 39c `lib/auth.ts` に `updateProfile` / `updatePassword`、`PUT /bff/me`・`PUT /bff/me/password`、スキーマ（パスワード変更も `new-password.ts` を使う）、`ProfileForm` / `PasswordForm`、`/account/profile`
+- 確認（CDP）: 住所 2 件追加（1 件目に自動で★）→ 会社を★に → 自宅を編集（千代田区 → 新宿区）→ 郵便番号の形式エラー → ★の会社を削除で自宅に★が移る。氏名を変更「保存しました。」→ 現在のパスワード違いで「The password is incorrect.」→ 正しく変更 → 古いパスワードのログイン 422・新しいパスワード 200。確認用ユーザーは削除
+  - 確認方法の罠: `router.refresh()` の描き直しは初回コンパイルで数秒かかる → 一覧の件数やメッセージが変わるまで待つ形に（固定の sleep だと次の操作が先に走る）
