@@ -342,3 +342,10 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 確認: `/products/boxy-cotton-t-shirt` 200・title「Boxy Cotton T-Shirt | EC-PORTFOLIO」、不明 slug 404。CDP で操作: Black → M を選ぶと ADD TO CART が有効 → 11 回押すとヘッダー `Cart (10)` で止まる・localStorage に quantity 10・リロード後も 10。スマホ横スクロールなし
   - 在庫 4 の M でもカートには 10 入る（在庫との突き合わせは /cart の再検証 = Step 35 の役目）
   - CDP の操作用ヘルパー（scratchpad の `cdp.mjs`）を用意
+
+**Step 35 — 2026-10-16 カートページ + 在庫の再検証**（2 コミット）
+- 35a `QueryProvider`（ここで初めて TanStack Query）を root layout に、`lib/types/cart.ts`（`CartLineValidation`）、`lib/cart.ts` + `GET /bff/cart/validate?ids=`（Laravel の `variant_ids[]` に変換）、`useCartValidation`（variant_id の集合をキーにキャッシュ → 数量の ± では再取得しない。取得前は楽観的に available）
+  - **R4 追加**: `useCartHydrated()`（`persist.hasHydrated` / `onFinishHydration`）。復元前は items が必ず空なので、これを見ずに描くと中身があっても一瞬 Your cart is empty が出る（R3 の挙動）→ 復元までは Loading
+- 35b `lib/cart-summary.ts`、`CartLine` / `CartSummary` / `CartView`（CC）、`/cart` の page.tsx は SC（metadata と見出しだけ。§3.6）
+  - **R4 変更**: 送料・合計の計算は R3 では `summarizeCart`・`CartSummary`・カートページ本体の 3 か所、「この行は買えない」の判定は `CartLine` と `summarizeCart` の 2 か所にあった → `lineProblem()` / `currentUnitPrice()` / `summarizeCart()`（`untilFreeShipping` も返す）に集約。`CartSummary` は結果を表示するだけ（フックも状態も無いので "use client" も不要）
+- 確認（CDP で操作）: M ×10（在庫 4）→「在庫は 4 点までです。」・CHECKOUT 不可・¥120,000 / FREE → − を 6 回で 4 個 → 注意書きが消え CHECKOUT 可・+ は disabled → 空のカートは Your cart is empty。サーバーの HTML は Loading…（空の表示を出さない）。スマホ横スクロールなし
