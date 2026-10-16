@@ -132,7 +132,7 @@ export const tags = {
 
 - Client Component が `fetch('/bff/...')`。Route Handler が Cookie のトークンを `lib/<domain>.ts` に渡し `Authorization: Bearer` を付けて Laravel へ。
 - Route Handler 本体は「body を読む → lib の関数を呼ぶ → Cookie 操作 / revalidateTag → JSON を返す」だけ。
-- `@tanstack/react-query` を使うのは、ログイン状態の `AccountLink`、カートの在庫再検証、決済ステータスのポーリング、住所録（`AddressBook`）。ログイン / 登録 / プロフィール更新 / ログアウトは、成功時に `AccountLink` のキャッシュを無効化するためだけに `useQueryClient` を使う。それ以外の `/account` 更新はローカル state + 手書き `fetch`。
+- `@tanstack/react-query` を使うのは、ログイン状態の `AccountLink`、カートの在庫再検証、決済ステータスのポーリングの 3 つだけ（R4。R3 は住所録 `AddressBook` でも使っていたが、§3.6 の方針で `router.refresh()` に変更）。ログイン / 登録 / プロフィール更新 / ログアウトは、成功時に `AccountLink` のキャッシュを無効化するためだけに `useQueryClient` を使う。
 - **`/admin` は TanStack Query を使わない**（R3 の実装に合わせて R4 で docs を修正）。ルールは「読み取り = Server Component、操作 = Client Component」:
   - `page.tsx` は async Server Component。`requireAdmin()` → Cookie のトークンで `fetchAdminXxx(token)`（`no-store`）→ 描画
   - 検索・絞り込み・ページングは URL の `searchParams` で持つ（クライアント state を持たない）
@@ -143,6 +143,54 @@ export const tags = {
 ### 3.5 Laravel の 422 をフォームに出す
 
 BFF は Laravel の `{ message, errors }` をそのまま同ステータスで中継。フォームは `errors` を react-hook-form の `setError` にマッピング。
+
+### 3.6 ページごとの Server / Client Component（R4 で明文化。2026-10-16 ユーザーと決定）
+
+**ルール: `page.tsx` と `layout.tsx` は全部 Server Component（SC）。Client Component（CC）は画面の中の「操作する部品」だけ。**
+
+CC にするのは次のどれかに当てはまるときだけ:
+1. ブラウザにしかないデータを使う（カート = localStorage）
+2. ユーザーの操作で画面が変わる（フォーム、ボタン、サイズ選択、グラフの日別⇔月別）
+3. ブラウザから定期的に取り直す（決済完了のポーリング）
+
+読み取りは SC が行い、CC は**操作したら `router.refresh()` でサーバーに描き直してもらう**。CC が自分で一覧を取り直すことはしない。
+
+**ストア**
+
+| ページ | page.tsx | サーバーで取るデータ | CC の部品 |
+|---|---|---|---|
+| `/` | SC（ISR） | CMS・カテゴリ・商品 | なし |
+| `/products/[slug]` | SC（ISR） | 商品詳細・関連商品 | `VariantSelector`（サイズ・色の選択 + カート追加） |
+| `/cart` | SC | なし | `CartView`（中身は全部 localStorage なので CC） |
+| `/login` `/register` | SC | なし | フォーム |
+| `/forgot-password` | SC | なし | フォーム |
+| `/reset-password` | SC | `searchParams` の token / email | フォーム（token / email は props で受け取る） |
+| `/account` | SC | ログインユーザー | `LogoutButton` |
+| `/account/orders`、`/[number]` | SC | 注文一覧・詳細 | なし |
+| `/account/addresses` | SC | 住所一覧 | `AddressBook`（追加・編集・削除・★ → `router.refresh()`） |
+| `/account/profile` | SC | ログインユーザー | `ProfileForm` / `PasswordForm` |
+| `/checkout` | SC | 住所一覧 | `CheckoutClient`（カートを読むため） |
+| `/checkout/payment` | SC | 注文 + **PaymentIntent（client_secret）** | `PaymentForm`（Stripe の入力欄はブラウザで動く） |
+| `/checkout/complete` | SC | 注文、`searchParams` の `redirect_status` | `CheckoutComplete`（paid までポーリング → カートを空に） |
+
+**管理画面**
+
+| ページ | page.tsx | CC の部品 |
+|---|---|---|
+| `/admin` | SC（stats + 売上） | `SalesChart`（日別⇔月別の切り替えだけ） |
+| `/admin/categories` | SC | `CategoryManager` |
+| `/admin/products`、`/new`、`/[id]` | SC | `ProductForm` / `ProductImagesManager` / `VariantsManager` |
+| `/admin/orders`、`/[number]` | SC | `OrderStatusActions` |
+| `/admin/customers`、`/[id]` | SC | なし |
+| `/admin/content` | SC | 4 セクションの編集フォーム |
+
+**全体で使う CC**: `QueryProvider` / `CartHydration` / ヘッダーの `CartCount`・`AccountLink`（ページを ISR で全員に同じ HTML として配るため、ログイン状態はブラウザ側で取る）/ `AdminNav`（現在のページの強調表示）
+
+**R3 から変えた点**
+
+1. **操作後の再取得を `router.refresh()` に統一**。R3 は `CategoryManager` / `VariantsManager` / `ProductImagesManager` が自前の `fetch` で一覧を取り直し、`AddressBook` は TanStack Query の `initialData` で二重に持っていた（一方 `OrderStatusActions` と商品の基本情報編集は `router.refresh()`）。同じデータを取る処理が SC と CC に 2 つあり、取り直し専用の GET の BFF ルート（`/bff/admin/categories`、`/bff/admin/products/{id}`、`/bff/addresses`）が余分に要っていた → 削除
+2. **URL のパラメータは SC の `searchParams` で読んで props で渡す**。R3 の `/reset-password` と `/checkout/complete` は CC が `useSearchParams()` を使い、そのためにページを `<Suspense>` で包んでいた → 不要に
+3. **`/cart` の page.tsx を SC に**。R3 はここだけページ全体が `"use client"` だった。例外のないルールにし、metadata も他のページと同じ書き方にする
 
 ---
 
@@ -181,21 +229,21 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 ### `/checkout/payment` フロー
 
 1. Server Component: `getOrder(number)` で対象注文を取得。`pending` でなければ状態別にリダイレクト（`paid`→complete、`cancelled`→orders 詳細）。
-2. Client `PaymentForm`:
-   - マウント時に `POST /bff/checkout/payment-intent`（`{ order_number }`）→ `{ client_secret, publishable_key }`
-   - `<Elements options={{ clientSecret }}>` → `<PaymentElement />` + `SUBMIT` ボタン
+2. 同じ Server Component が `POST /api/checkout/payment-intent`（`{ order_number }`）を呼び、`{ client_secret, publishable_key }` を受け取る（R4 で docs を実装に合わせて修正。R3 の docs は「Client がマウント時に作る」と書いていたが、実装はサーバー側で作っていた）。503（Stripe 未設定）・409（価格が変わった）は、この SC がパネルで表示する
+3. Client `PaymentForm`:
+   - props で受け取った `clientSecret` / `publishableKey` で `<Elements options={{ clientSecret }}>` → `<PaymentElement />` + `SUBMIT` ボタン
    - `stripe.confirmPayment({ elements, confirmParams: { return_url: `${SITE_URL}/checkout/complete?order=${number}` }, redirect: 'if_required' })`
    - 成功（`redirect: 'if_required'` で即返る場合）→ `router.push('/checkout/complete?order=..')`
    - 3DS などでリダイレクトが必要な場合は Stripe が `return_url` へ飛ばす
    - エラー（`error.type === 'card_error' | 'validation_error'`）→ フォーム下にメッセージ。注文は `pending` のまま
-3. `client_secret` は再訪時に同じ PaymentIntent のものが返る（`docs/09` の再利用）。
+4. `client_secret` は再訪時に同じ PaymentIntent のものが返る（`docs/09` の再利用）。
 
 ### `/checkout/complete`
 
 - `useOrderStatusPolling(number)` フック: `GET /bff/orders/{number}` を 1.5 秒間隔で最大 ~10 秒ポーリング、`status` が `paid` 以上になったら停止。
 - `paid` → 注文番号・`VIEW ORDER`・`CONTINUE SHOPPING`、カートを空に。
 - タイムアウト → 「決済を受け付けました。反映まで少しかかることがあります」＋ `VIEW ORDER`、カートは空に（Webhook が最終的に確定させる）。
-- URL に Stripe の `redirect_status=failed` が付いていたら「決済に失敗しました」＋ `/checkout/payment?order=..` へ戻すリンク。
+- URL に Stripe の `redirect_status=failed` が付いていたら（SC の `searchParams` で読んで props で渡す。§3.6）「決済に失敗しました」＋ `/checkout/payment?order=..` へ戻すリンク。
 
 ---
 

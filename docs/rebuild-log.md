@@ -296,3 +296,13 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 
 ### Phase 5 完了 = バックエンドの機能実装 完了
 管理 API（カテゴリ / 商品 / 画像 / バリアント / 注文 / 会員 / 統計）、CMS、売上ダッシュボード API まで揃った。`php artisan test` 231 passed。次はフロントエンド（Next.js）。
+
+## 機能実装フェーズ（フロントエンド・Next.js）
+
+> 進め方（2026-10-16 ユーザーと決定）: 1 Step = 説明 → 実装 → `tsc` / `lint` / BFF を curl → ヘッドレス Chrome でスクショ（PC 幅・スマホ幅）→ ユーザーがブラウザで localhost:3000 を触る → レビュー → コミット
+
+### 設計の決定 — ページごとの SC / CC（2026-10-16）
+- `docs/08` §3.6 に一覧を追加。ルール: `page.tsx` / `layout.tsx` は全部 SC、CC は操作する部品だけ（理由はブラウザのデータ・操作で変わる・ポーリングの 3 つのみ）
+- R3 から変える点: ① 操作後の再取得を `router.refresh()` に統一（R3 は自前 fetch / TanStack の initialData で SC と二重取得、取り直し専用の GET BFF ルート 3 本 → 削除）② URL パラメータは SC の `searchParams` から props で渡す（`useSearchParams` + `Suspense` を削除）③ `/cart` の page.tsx も SC に
+- 「無理に SC にしている所」は無かった。あったのは逆向き（CC が SC と同じデータを取り直す・SC で読める値を CC で読む）
+- `docs/08` §6 の決済フローを実装に合わせて修正（PaymentIntent は SC で作って client_secret を CC に渡す。R3 の docs は Client がマウント時に作ると書いていた）
