@@ -65,3 +65,9 @@ export type CreateOrderRequest = {
   address?: Omit<ShippingAddressSnapshot, "address_line2"> & { address_line2?: string | null };
   save_address?: boolean;
 };
+
+// POST /api/checkout/payment-intent（backend の CreatePaymentIntent）
+export type PaymentIntentResponse = {
+  client_secret: string;
+  publishable_key: string;
+};
