@@ -76,3 +76,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- 決済（注文の PaymentIntent を作成 or 再利用し client_secret を返す。docs/09） ---
     Route::post('/checkout/payment-intent', [CheckoutController::class, 'paymentIntent']);
 });
+
+// --- 管理画面（admin ロールのみ。定義は routes/admin.php。docs/05-admin.md） ---
+// ルート名にも admin. を付ける（apiResource の名前が利用者側の orders.index などとぶつからないように）
+Route::middleware(['auth:sanctum', 'admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(base_path('routes/admin.php'));
