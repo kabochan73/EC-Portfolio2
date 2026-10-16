@@ -332,3 +332,13 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 詰まり: `tsc` が `.next/types/validator.ts` で「ルートは /bff/health しか無い」前提の型エラー → 開発サーバーが新しいルートを読み込む前に生成された古い型。`/media` に 1 回アクセスしてから再実行で解消
 - **R4 変更（ユーザーと決定）**: 型の置き場所を種類ごとに。`lib/types.ts` → `lib/types/`（`api` / `catalog` / `cms` + `index.ts` で再エクスポート。import パスは `@/lib/types` のまま）。フォームの入力の型は `z.infer` だけ（手書きの Payload を作らない）、props はコンポーネント内。`docs/08` §7 を書き直し
 - 確認: 管理 API で商品 1 に画像 2 枚・Hero と Lookbook に CMS 画像をアップロード → `/media/...` 200 `image/jpeg`・1 年キャッシュ、トップに表示。`/media/secret/...` と `..` は 404
+
+**Step 34 — 2026-10-16 商品詳細 + カート**（3 コミット）
+- 34a カートの土台: `lib/constants.ts`、`lib/stores/cart.ts`（zustand + persist、key `ecp-cart`、`skipHydration: true`）、`CartHydration`（マウント後に `rehydrate()`。SSR は常に items: [] なので hydration mismatch を避ける）、`CartCount`（数量合計）を Header に、`app/layout.tsx` に `CartHydration`
+  - **R4 修正**: カートの 1 明細を 10 個（`cart_max_quantity_per_line`）に収める `clampQuantity`（R3 は押した回数だけ増え、11 個以上で注文すると 422）
+  - `CartItem` は API の型ではなくストアが持つ形なので `lib/stores/cart.ts` に定義（docs/08 §7 のルール）
+- 34b 型（`ProductVariant` / `SizeChart` / `ProductDetail` を `lib/types/catalog.ts` に）、`getProduct()`（404 は null、タグ `product:{slug}` + `products`）、`Gallery`（スマホは横スワイプ・PC は縦積み）/ `Accordion`（`<details>` で JS 不要 = SC のまま）/ `SizeChartTable`
+- 34c `/products/[slug]`（SC・ISR。`generateMetadata` で `notFound()` → ストリーミング前に 404 が確定する。R3 の「loading.tsx があると 404 なのに 200」の罠を避けるため `(shop)` に loading.tsx は置かない）、`VariantSelector`（CC。色 → サイズ、SOLD OUT は disabled）、`(shop)/not-found.tsx`
+- 確認: `/products/boxy-cotton-t-shirt` 200・title「Boxy Cotton T-Shirt | EC-PORTFOLIO」、不明 slug 404。CDP で操作: Black → M を選ぶと ADD TO CART が有効 → 11 回押すとヘッダー `Cart (10)` で止まる・localStorage に quantity 10・リロード後も 10。スマホ横スクロールなし
+  - 在庫 4 の M でもカートには 10 入る（在庫との突き合わせは /cart の再検証 = Step 35 の役目）
+  - CDP の操作用ヘルパー（scratchpad の `cdp.mjs`）を用意
