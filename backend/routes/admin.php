@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\OrderController;
 use App\Http\Controllers\Api\Admin\ProductController;
 use App\Http\Controllers\Api\Admin\ProductImageController;
+use App\Http\Controllers\Api\Admin\SalesController;
 use App\Http\Controllers\Api\Admin\SiteContentController;
 use App\Http\Controllers\Api\Admin\VariantController;
 use App\Models\SiteContent;
@@ -49,6 +50,9 @@ Route::apiResource('customers', CustomerController::class)->only(['index', 'show
 
 // --- ダッシュボード ---
 Route::get('/stats', [DashboardController::class, 'stats']);
+
+// --- 売上ダッシュボード（R4 追加。KPI / 日別 / 月別 / カテゴリ別ランキング。docs/05-admin.md）---
+Route::get('/sales', SalesController::class);
 
 // --- CMS（トップページのコンテンツ。docs/11-cms.md）。{key} は 4 種以外 404 ---
 Route::get('/content', [SiteContentController::class, 'index']);

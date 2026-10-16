@@ -282,3 +282,17 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 29b 管理 `GET / PUT /api/admin/content(/{key})` … `UpdateSiteContent` Action（`updated_by`）、`UpdateSiteContentRequest` は key ごとに rules 出し分け。`POST /api/admin/content/{key}/images` … `content/{key}/{ulid}.ext` に保存、`{ url: "/media/..." }`。`{key}` は `whereIn` で不正なら 404
   - 画像 URL は data JSON に `/media/...` 形式で直接持たせる（CMS の JSON は自由形式なので商品画像とは方式が違う）
 - Feature テスト 3 + 7 本（`contentAdmin()` は共通の `admin()` に）。`php artisan test` 220 passed
+
+**Step 30 — 2026-10-16 売上ダッシュボード API（R4 の新機能）**（3 コミット）
+- 30a `Domain/Sales/SalesPeriod`（DB を使わない期間計算。今日 / 今月 / 先月 / 過去 12 か月を JST の `[start, end)` で返す、0 埋め用の日付・月の一覧）。`addMonthNoOverflow` で 3/31 の「先月」が 3 月にずれない
+  - Unit テスト 5 本（JST 11/01 00:30 = UTC 10/31 は 11 月 / 月の区切りの UTC 換算 / 2 月 28 日分 / 3/31 の先月 / 年またぎ 12 か月）。素朴な `subMonth()` に戻すと落ちることを確認
+- 30b `Actions/Admin/GetSalesDashboard`: KPI（今月の売上・注文数・今日の売上）/ 日別（今月 1〜末日を 0 埋め）/ 月別（12 か月を 0 埋め）/ ランキング（カテゴリ × 全商品、今月の個数 desc → 売上 desc、前月比 = 今月個数 ÷ 先月個数・先月 0 なら null・小数 2 桁）
+  - 期間の WHERE は JST の範囲を `->utc()` して渡す（Laravel は Carbon を時差変換せずに文字列化する）→ `orders(status, paid_at)` インデックスが効く。日・月の GROUP BY は `paid_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Tokyo'`
+  - 日別と月別は `revenueSeries()` 1 つで作る（違いは書式とラベル一覧だけ）
+- 30c `SalesController`（invokable）、`GET /api/admin/sales`。レスポンスは `{ data: { kpi, daily, monthly, ranking } }`（他の API に合わせ `data` で包む。docs/05 も更新）
+- 決定（ユーザー承認）: ランキングに非公開商品も含める / 前月比は小数 2 桁 / paid 後に cancelled（返金）の注文は売上に含めない
+- Feature テスト 6 本（KPI は paid・shipped・completed のみ / JST 10/01 00:30 は 10 月・JST 09/30 23:30 は 9 月 / 0 埋め 31 日・12 か月 / 並び順と前月比 / 削除済み商品はランキングから外れるが KPI には残る / 非 admin 403）。集計式を UTC のまま（`orders.paid_at`）にすると JST のテストが落ちることを確認
+- 確認: tinker で境目のデータを作り手計算と一致。`php artisan test` 231 passed
+
+### Phase 5 完了 = バックエンドの機能実装 完了
+管理 API（カテゴリ / 商品 / 画像 / バリアント / 注文 / 会員 / 統計）、CMS、売上ダッシュボード API まで揃った。`php artisan test` 231 passed。次はフロントエンド（Next.js）。

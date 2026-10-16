@@ -85,22 +85,29 @@ R3 は「売上を表示しない」方針だったが、2026-10-15 に撤回。
 
 ```json
 {
-  "kpi": { "month_revenue": 128000, "month_orders": 9, "today_revenue": 15800 },
-  "daily":   [{ "date": "2026-10-01", "revenue": 0 }, ...],
-  "monthly": [{ "month": "2025-11", "revenue": 0 }, ...],
-  "ranking": [
-    {
-      "category": { "id": 1, "name": "Tops" },
-      "products": [
-        { "id": 3, "name": "...", "quantity": 2, "revenue": 31600, "last_month_quantity": 1, "mom_ratio": 2.0 }
-      ]
-    }
-  ]
+  "data": {
+    "kpi": { "month_revenue": 128000, "month_orders": 9, "today_revenue": 15800 },
+    "daily":   [{ "date": "2026-10-01", "revenue": 0 }, ...],
+    "monthly": [{ "month": "2025-11", "revenue": 0 }, ...],
+    "ranking": [
+      {
+        "category": { "id": 1, "name": "Tops" },
+        "products": [
+          { "id": 3, "name": "...", "quantity": 2, "revenue": 31600, "last_month_quantity": 1, "mom_ratio": 2.0 }
+        ]
+      }
+    ]
+  }
 }
 ```
 
+（他の API と同じく `data` で包む。2026-10-16 実装時に決定）
+
 - 日付・月はすべて JST。`daily` は今月の 1 日〜月末を欠けなく返す（売上の無い日も `0` で埋める）。`monthly` も同様に 12 か月分
-- `mom_ratio` = 個数の前月比（先月 0 個なら `null`）
+- `mom_ratio` = 個数の前月比（先月 0 個なら `null`）。小数第 2 位で丸める（例 1 ÷ 3 = `0.33`）
+- ランキングには**非公開の商品も含める**（管理画面なので、非公開にしたが今月売れた商品も見えるように）。削除済み商品は含めないが、注文の `total` は変わらないので KPI・グラフの売上には残る
+- 一度 paid になった後で cancelled になった注文（返金済み）は売上に含めない
+- 実装: 期間計算は `Domain/Sales/SalesPeriod`（[start, end) を JST で返す。クエリには `->utc()` して渡す）、集計は `Actions/Admin/GetSalesDashboard`（WHERE は UTC の範囲でインデックスを効かせ、GROUP BY は `paid_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Tokyo'`）
 - グラフ描画ライブラリは入れない（2026-10-15 決定）。棒グラフは div の高さ（`revenue ÷ 期間内の最大値` の %）で自作する。ホバーで金額を出す程度にとどめ、軸の目盛りは最大値と 0 のみ
 - 集計ロジックは `Actions/Admin/GetSalesDashboard`（`docs/06` の Action）に置き、日付計算は Unit テスト、集計は Feature テストで確認する
 
