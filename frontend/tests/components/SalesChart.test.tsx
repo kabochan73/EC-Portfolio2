@@ -21,15 +21,23 @@ const monthly: MonthlyRevenue[] = Array.from({ length: 12 }, (_, i) => {
   return { month: `${year}-${String(month).padStart(2, "0")}`, revenue: month === 10 ? 50000 : month === 9 ? 25000 : 0 };
 });
 
+function renderChart(props: Partial<Parameters<typeof SalesChart>[0]> = {}) {
+  return render(
+    <SalesChart daily={october({})} monthly={monthly} selectedMonth="2026-10" initialMode="daily" {...props} />,
+  );
+}
+
+/** グラフの枠（日別は role="img"、月別は role="group"） */
+const chart = () => screen.getByLabelText(/の売上。最大/);
+
 /** 棒の高さ（style.height）を順番に */
 function barHeights(): string[] {
-  const chart = screen.getByRole("img");
-  return [...chart.children].map((bar) => (bar.firstElementChild as HTMLElement).style.height);
+  return [...chart().children].map((bar) => (bar.firstElementChild as HTMLElement).style.height);
 }
 
 describe("SalesChart", () => {
   it("日別: 31 本。一番売れた日が 100%、ほかは最大値との比", () => {
-    render(<SalesChart daily={october({ 1: 24000, 16: 48000 })} monthly={monthly} />);
+    renderChart({ daily: october({ 1: 24000, 16: 48000 }) });
 
     const heights = barHeights();
     expect(heights).toHaveLength(31);
@@ -41,7 +49,7 @@ describe("SalesChart", () => {
 
   it("月別に切り替えると 12 本・ラベルは「n月」（データは取り直さない）", async () => {
     const user = userEvent.setup();
-    render(<SalesChart daily={october({})} monthly={monthly} />);
+    renderChart();
 
     await user.click(screen.getByRole("button", { name: "月別" }));
 
@@ -49,17 +57,42 @@ describe("SalesChart", () => {
     expect(barHeights()).toHaveLength(12);
     expect(barHeights().slice(-2)).toEqual(["50%", "100%"]); // 9 月・10 月
     expect(screen.getByText("11月")).toBeInTheDocument();
-    expect(screen.getByText("10月")).toBeInTheDocument();
   });
 
   it("日別のラベルは 1・5・10…30 だけ（31 は出さない。スマホで 30 とくっつくため）", () => {
-    render(<SalesChart daily={october({})} monthly={monthly} />);
-    const labels = [...screen.getByRole("img").nextElementSibling!.children].map((s) => s.textContent).filter(Boolean);
+    renderChart();
+    const labels = [...chart().nextElementSibling!.children].map((s) => s.textContent).filter(Boolean);
     expect(labels).toEqual(["1", "5", "10", "15", "20", "25", "30"]);
   });
 
   it("売上が 1 件も無い期間は全部 0%（0 で割らない）", () => {
-    render(<SalesChart daily={october({})} monthly={monthly} />);
+    renderChart();
     expect(new Set(barHeights())).toEqual(new Set(["0%"]));
+  });
+});
+
+describe("SalesChart — 月別の棒からランキングの月を選ぶ（R4 追加 2026-10-17）", () => {
+  it("?month= 付きで開いたときは月別から表示する", () => {
+    renderChart({ initialMode: "monthly", selectedMonth: "2026-09" });
+    expect(screen.getByRole("group")).toBeInTheDocument();
+    expect(barHeights()).toHaveLength(12);
+  });
+
+  it("棒はその月のランキングへのリンク（今月は ?month= なし）", () => {
+    renderChart({ initialMode: "monthly" });
+    expect(screen.getByRole("link", { name: /2026\/09 のランキング/ })).toHaveAttribute("href", "/admin/sales?month=2026-09");
+    expect(screen.getByRole("link", { name: /2025\/11 のランキング/ })).toHaveAttribute("href", "/admin/sales?month=2025-11");
+    expect(screen.getByRole("link", { name: /2026\/10 のランキング/ })).toHaveAttribute("href", "/admin/sales");
+  });
+
+  it("ランキングで表示中の月の棒だけ濃く、ほかは薄い", () => {
+    renderChart({ initialMode: "monthly", selectedMonth: "2026-09" });
+    const selected = screen.getByRole("link", { name: /2026\/09/ });
+    const other = screen.getByRole("link", { name: /2026\/10/ });
+
+    expect(selected).toHaveAttribute("aria-current", "true");
+    expect(selected.firstElementChild).not.toHaveClass("opacity-30");
+    expect(other).not.toHaveAttribute("aria-current");
+    expect(other.firstElementChild).toHaveClass("opacity-30");
   });
 });

@@ -1,13 +1,14 @@
 import { formatYen } from "@/lib/format";
 import type { CategoryRanking } from "@/lib/types";
 
-/** 前月比の表示。先月 0 個なら比べられないので「—」 */
+/** 前月比の表示。前の月が 0 個なら比べられないので「—」 */
 function formatRatio(ratio: number | null): string {
   return ratio === null ? "—" : `${Math.round(ratio * 100)}%`;
 }
 
 /**
- * カテゴリ別の商品ランキング（今月。Server Component）。
+ * カテゴリ別の商品ランキング（選んだ月。初期は今月。Server Component）。
+ * 「Prev Month」は選んだ月の前の月の個数（R4 2026-10-17: 月を選べるようにしたので Last Month から改名）。
  * 並び順は API が決める（販売個数 → 同数なら売上）。カテゴリの全商品を出す（TOP N で切らない。docs/05）
  */
 export default function SalesRanking({ ranking }: { ranking: CategoryRanking[] }) {
@@ -27,7 +28,7 @@ export default function SalesRanking({ ranking }: { ranking: CategoryRanking[] }
                     <th className="py-2 pr-4 font-normal">Product</th>
                     <th className="py-2 pr-4 text-right font-normal">Qty</th>
                     <th className="py-2 pr-4 text-right font-normal">Revenue</th>
-                    <th className="py-2 pr-4 text-right font-normal">Last Month</th>
+                    <th className="py-2 pr-4 text-right font-normal">Prev Month</th>
                     <th className="py-2 text-right font-normal">MoM</th>
                   </tr>
                 </thead>

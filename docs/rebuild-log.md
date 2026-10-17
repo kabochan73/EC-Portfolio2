@@ -515,3 +515,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - `railway ssh` が `no_ssh_key` → `-i ~/.ssh/<Railway に登録済みの鍵>`
   - **注文確認メールのジョブが `Class "Resend" not found` で失敗**。R3 はデプロイ後の調整で `composer require resend/resend-php` していたが、R4 は引き継いでいなかった（ローカルは Mailpit なので気づけない）→ R4 でも追加
 - メールは Resend の共有ドメイン（`onboarding@resend.dev`）なので、アカウント所有者のアドレスにしか届かない。独自ドメインは費用がかかるので取らない（ユーザーの判断。ブログで説明する）
+
+**Step 53 — 2026-10-17 売上ランキングの月を選べるように（デプロイ後の追加。ユーザーの案）**（2 コミット）
+- きっかけ: 月別グラフで「9 月が多い」は分かるのに、9 月に何が売れたかは見られなかった（ランキングが今月固定）
+- 53a backend: `GET /api/admin/sales?month=YYYY-MM`（過去 12 か月だけ。範囲外・形式違いは 422、省略は今月）。`SalesPeriod::month()` / `monthBefore()` / `currentMonth()`、`GetSalesDashboard` はランキングだけ選んだ月で集計し、前月比は「選んだ月 ÷ その前の月」。レスポンスに `ranking_month`。KPI と日別・月別グラフは今月のまま（ユーザーの判断で日別は切り替えない）。テスト 6 件（Unit: 9 月とその前・年またぎ・3 月の前は 2 月 / Feature: 9 月を選ぶと 8 月と比べる・JST 8/31 23:30 は 8 月・KPI は今月のまま・範囲外 4 パターンが 422）
+- 53b frontend: URL は `/admin/sales?month=2026-09`（page の SC が searchParams で読む。422 なら今月へ redirect）。`RankingMonthNav`（SC。「‹ 2026/09 ›」のリンク、`scroll={false}`）、`SalesChart` の月別の棒をリンクに（選んでいる月だけ濃く、ほかは薄く。`?month=` 付きで開いたら月別から表示。月別は棒がリンクなので role="img" ではなく role="group"）。ランキングの列名 Last Month → Prev Month。Vitest 5 件追加（合計 74）
+- 確認（CDP）: 月別の 9 月の棒をクリック → `?month=2026-09`・見出し (2026/09)・9 月の棒だけ濃い・スクロール位置はそのまま → ‹ で 8 月 → `?month=2026-09` を直接開くと月別から表示 → `?month=2030-01` は `/admin/sales` へ。スマホは横スクロールなし

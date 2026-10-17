@@ -59,6 +59,8 @@ export type SalesDashboard = {
   kpi: SalesKpi;
   daily: DailyRevenue[];
   monthly: MonthlyRevenue[];
+  /** ランキングの月（"2026-09"）。?month= で選んだ月、省略なら今月（R4 追加。2026-10-17） */
+  ranking_month: string;
   ranking: CategoryRanking[];
 };
 

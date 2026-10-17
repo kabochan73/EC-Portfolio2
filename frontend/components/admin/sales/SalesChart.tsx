@@ -1,13 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
+import { rankingHref } from "@/components/admin/sales/RankingMonthNav";
 import { formatYen } from "@/lib/format";
 import type { DailyRevenue, MonthlyRevenue } from "@/lib/types";
 
 type Props = {
   daily: DailyRevenue[];
   monthly: MonthlyRevenue[];
+  /** ランキングで表示中の月（月別で濃く塗る） */
+  selectedMonth: string;
+  /** ?month= 付きで開いたときは月別から見せる */
+  initialMode: "daily" | "monthly";
 };
 
 type Bar = { key: string; label: string; title: string; revenue: number };
@@ -17,9 +23,12 @@ type Bar = { key: string; label: string; title: string; revenue: number };
  * - 棒の高さ = その期間の売上 ÷ 期間内の最大値（%）
  * - 日別 ⇔ 月別の切り替えは useState だけ。データは両方とも props で受け取り済みなので再取得しない
  * - マウスを乗せると金額を出す。目盛りは最大値と 0 だけ
+ * - 月別の棒を押すと、その月のランキングに切り替わる（/admin/sales?month=…。R4 追加 2026-10-17）。
+ *   ランキングで表示中の月の棒を濃く、ほかを薄くする
  */
-export default function SalesChart({ daily, monthly }: Props) {
-  const [mode, setMode] = useState<"daily" | "monthly">("daily");
+export default function SalesChart({ daily, monthly, selectedMonth, initialMode }: Props) {
+  const [mode, setMode] = useState<"daily" | "monthly">(initialMode);
+  const months = monthly.map((m) => m.month);
 
   const bars: Bar[] =
     mode === "daily"
@@ -70,23 +79,52 @@ export default function SalesChart({ daily, monthly }: Props) {
         </div>
 
         <div className="min-w-0 flex-1">
+          {/* 日別はただの絵（role="img"）。月別は棒がリンクなので、まとまり（role="group"）にする */}
           <div
             className="flex h-48 items-end gap-px border-b border-l border-ink"
-            role="img"
-            aria-label={`${mode === "daily" ? "日別" : "月別"}の売上。最大 ${formatYen(max)}`}
+            role={mode === "daily" ? "img" : "group"}
+            aria-label={
+              mode === "daily"
+                ? `日別の売上。最大 ${formatYen(max)}`
+                : `月別の売上。最大 ${formatYen(max)}。棒を押すとその月のランキングを表示`
+            }
           >
-            {bars.map((bar) => (
-              <div key={bar.key} className="group relative flex h-full flex-1 items-end" title={`${bar.title} ${formatYen(bar.revenue)}`}>
-                <div
-                  className="w-full bg-ink transition-opacity group-hover:opacity-60"
-                  style={{ height: max > 0 ? `${(bar.revenue / max) * 100}%` : "0%" }}
-                />
-                {/* マウスを乗せたときの金額 */}
+            {bars.map((bar) => {
+              const height = max > 0 ? `${(bar.revenue / max) * 100}%` : "0%";
+              const label = `${bar.title} ${formatYen(bar.revenue)}`;
+              const tooltip = (
                 <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 border border-ink bg-paper px-2 py-1 text-[10px] whitespace-nowrap group-hover:block">
-                  {bar.title} {formatYen(bar.revenue)}
+                  {label}
                 </span>
-              </div>
-            ))}
+              );
+
+              if (mode === "daily") {
+                return (
+                  <div key={bar.key} className="group relative flex h-full flex-1 items-end" title={label}>
+                    <div className="w-full bg-ink transition-opacity group-hover:opacity-60" style={{ height }} />
+                    {tooltip}
+                  </div>
+                );
+              }
+
+              const selected = bar.key === selectedMonth;
+              return (
+                <Link
+                  key={bar.key}
+                  href={rankingHref(bar.key, months)}
+                  scroll={false}
+                  aria-label={`${label}（${bar.title} のランキングを見る）`}
+                  aria-current={selected ? "true" : undefined}
+                  className="group relative flex h-full flex-1 items-end"
+                >
+                  <div
+                    className={`w-full bg-ink transition-opacity group-hover:opacity-60 ${selected ? "" : "opacity-30"}`}
+                    style={{ height }}
+                  />
+                  {tooltip}
+                </Link>
+              );
+            })}
           </div>
 
           <div className="mt-1 flex gap-px text-[10px] text-graphite">
