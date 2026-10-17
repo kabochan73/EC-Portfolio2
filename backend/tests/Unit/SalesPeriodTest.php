@@ -56,3 +56,15 @@ it('lists the last twelve months oldest first, across the year boundary', functi
         '2025-08', '2025-09', '2025-10', '2025-11', '2025-12', '2026-01',
     ])->and(fmt($period->lastTwelveMonths()))->toBe('2025-02-01 00:00 → 2026-02-01 00:00');
 });
+
+it('returns any chosen month and the month before it, for the ranking (R4)', function () {
+    $period = periodAtJst('2026-10-17 12:00');
+
+    expect(fmt($period->month('2026-09')))->toBe('2026-09-01 00:00 → 2026-10-01 00:00')
+        ->and(fmt($period->monthBefore('2026-09')))->toBe('2026-08-01 00:00 → 2026-09-01 00:00')
+        // 年をまたぐ / 3 月の前は 2 月（日数の違う月でもずれない）
+        ->and(fmt($period->monthBefore('2026-01')))->toBe('2025-12-01 00:00 → 2026-01-01 00:00')
+        ->and(fmt($period->monthBefore('2026-03')))->toBe('2026-02-01 00:00 → 2026-03-01 00:00')
+        ->and($period->month('2026-09')[0]->utc()->format('Y-m-d H:i'))->toBe('2026-08-31 15:00')
+        ->and($period->currentMonth())->toBe('2026-10');
+});

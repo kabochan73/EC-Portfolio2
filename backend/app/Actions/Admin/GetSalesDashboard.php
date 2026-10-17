@@ -27,15 +27,19 @@ final class GetSalesDashboard
     private const PAID_AT_JST = "(orders.paid_at AT TIME ZONE 'UTC') AT TIME ZONE '".SalesPeriod::TIMEZONE."'";
 
     /**
-     * @return array{kpi: array<string, int>, daily: list<array<string, mixed>>, monthly: list<array<string, mixed>>, ranking: list<array<string, mixed>>}
+     * @param  string|null  $rankingMonth  ランキングの月（'Y-m'）。null なら今月（R4 追加。KPI・グラフは常に今月 / 過去 12 か月）
+     * @return array{kpi: array<string, int>, daily: list<array<string, mixed>>, monthly: list<array<string, mixed>>, ranking_month: string, ranking: list<array<string, mixed>>}
      */
-    public function execute(SalesPeriod $period): array
+    public function execute(SalesPeriod $period, ?string $rankingMonth = null): array
     {
+        $rankingMonth ??= $period->currentMonth();
+
         return [
             'kpi' => $this->kpi($period),
             'daily' => $this->revenueSeries($period->thisMonth(), 'YYYY-MM-DD', 'date', $period->daysOfThisMonth()),
             'monthly' => $this->revenueSeries($period->lastTwelveMonths(), 'YYYY-MM', 'month', $period->monthsOfLastTwelve()),
-            'ranking' => $this->ranking($period),
+            'ranking_month' => $rankingMonth,
+            'ranking' => $this->ranking($period, $rankingMonth),
         ];
     }
 
@@ -74,17 +78,18 @@ final class GetSalesDashboard
     }
 
     /**
-     * カテゴリごとに、そのカテゴリの全商品を今月の販売個数順に並べる（同数なら売上順）。
-     * 前月比 = 今月の個数 ÷ 先月 1 か月分の個数（先月 0 個なら null）。削除済み商品は対象外。
+     * カテゴリごとに、そのカテゴリの全商品を「選んだ月」の販売個数順に並べる（同数なら売上順）。
+     * 前月比 = 選んだ月の個数 ÷ その前の月 1 か月分の個数（前の月が 0 個なら null）。削除済み商品は対象外。
+     * R4（2026-10-17）: 月を選べるようにした。それまでは今月 ÷ 先月の固定（キー名 last_month_quantity はそのまま）
      *
      * @return list<array<string, mixed>>
      */
-    private function ranking(SalesPeriod $period): array
+    private function ranking(SalesPeriod $period, string $month): array
     {
-        $thisMonth = $this->soldByProduct($period->thisMonth());
-        $lastMonth = $this->soldByProduct($period->lastMonth());
+        $thisMonth = $this->soldByProduct($period->month($month));
+        $lastMonth = $this->soldByProduct($period->monthBefore($month));
 
-        // 管理画面なので非公開の商品も含める（非公開にしたが今月は売れていた商品も見えるように）
+        // 管理画面なので非公開の商品も含める（非公開にしたが、その月は売れていた商品も見えるように）
         $categories = Category::query()
             ->ordered()
             ->with(['products' => fn ($q) => $q->ordered()])

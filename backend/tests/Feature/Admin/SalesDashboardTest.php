@@ -122,6 +122,38 @@ it('ranks every product of a category by quantity, then revenue, with the month-
         ->and($products[3]['mom_ratio'])->toEqual(0);  // 0 ÷ 1
 });
 
+it('ranks a chosen month against the month before it, keeping the KPIs on this month (R4)', function () {
+    $tops = Category::factory()->create(['name' => 'Tops', 'position' => 0]);
+    $tee = Product::factory()->for($tops)->create(['name' => 'Tee', 'price' => 10_000, 'position' => 0]);
+    $shirt = Product::factory()->for($tops)->create(['name' => 'Shirt', 'price' => 20_000, 'position' => 1]);
+
+    soldOrder('2026-10-03 12:00', [[$tee, 5]]);                 // 今月
+    soldOrder('2026-09-10 12:00', [[$shirt, 2], [$tee, 1]]);    // 9 月
+    soldOrder('2026-08-31 23:30', [[$shirt, 4]]);               // 8 月（JST の月末。UTC では 8/31 14:30）
+
+    $data = test()->actingAs(admin())->getJson('/api/admin/sales?month=2026-09')->assertOk()->json('data');
+    $products = $data['ranking'][0]['products'];
+
+    expect($data['ranking_month'])->toBe('2026-09')
+        ->and(array_column($products, 'name'))->toBe(['Shirt', 'Tee'])
+        ->and($products[0])->toMatchArray(['quantity' => 2, 'revenue' => 40_000, 'last_month_quantity' => 4, 'mom_ratio' => 0.5])
+        ->and($products[1])->toMatchArray(['quantity' => 1, 'last_month_quantity' => 0, 'mom_ratio' => null])
+        // KPI とグラフは月を選んでも今月のまま
+        ->and($data['kpi']['month_revenue'])->toBe(50_000)
+        ->and(salesData()['ranking_month'])->toBe('2026-10'); // 省略は今月
+});
+
+it('rejects a ranking month outside the last twelve months', function (string $month) {
+    test()->actingAs(admin())->getJson("/api/admin/sales?month={$month}")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('month');
+})->with([
+    '未来の月' => '2026-11',
+    '13 か月前' => '2025-10',
+    '形式違い' => '2026-9',
+    '月がない' => '2026-13',
+]);
+
 it('ignores sales of deleted products in the ranking', function () {
     $tops = Category::factory()->create();
     $kept = Product::factory()->for($tops)->create(['price' => 10_000]);

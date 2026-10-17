@@ -50,6 +50,36 @@ final class SalesPeriod
         return [$start, $start->addMonthNoOverflow()];
     }
 
+    /**
+     * 指定した月（'Y-m'）の [1 日 00:00, 翌月 1 日 00:00)。ランキングの月を選ぶとき（R4 追加。2026-10-17）
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function month(string $month): array
+    {
+        $start = CarbonImmutable::createFromFormat('!Y-m', $month, self::TIMEZONE);
+
+        return [$start, $start->addMonthNoOverflow()];
+    }
+
+    /**
+     * 指定した月の「前の月」1 か月分（ランキングの前月比の基準）。
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function monthBefore(string $month): array
+    {
+        [$start] = $this->month($month);
+
+        return [$start->subMonthNoOverflow(), $start];
+    }
+
+    /** 今月（'Y-m'）。ランキングの月の既定値 */
+    public function currentMonth(): string
+    {
+        return $this->now->format('Y-m');
+    }
+
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable} 過去 12 か月（今月を含む）の 1 日から翌月 1 日まで */
     public function lastTwelveMonths(): array
     {
