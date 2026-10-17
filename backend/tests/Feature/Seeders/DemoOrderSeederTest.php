@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\ProductVariant;
 use App\Models\User;
@@ -19,17 +18,26 @@ afterEach(function () {
     Carbon::setTestNow();
 });
 
-it('デモ会員 10 人と、全部「発送済み・決済成功」の注文を作る', function () {
+it('デモ会員 10 人と、決済成功の注文を作る。状態は古さで paid / shipped / completed に分ける', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-17 12:00', 'Asia/Tokyo'));
     $this->seed(DemoOrderSeeder::class);
 
     expect(User::where('email', 'like', 'demo%@example.com')->count())->toBe(10);
 
     $orders = Order::with(['items', 'payment'])->get();
     expect($orders->count())->toBeGreaterThanOrEqual(20)
-        ->and($orders->every(fn (Order $o) => $o->status === OrderStatus::Shipped))->toBeTrue()
         ->and($orders->every(fn (Order $o) => $o->payment?->status === 'succeeded' && $o->payment->amount === $o->total))->toBeTrue()
-        ->and($orders->every(fn (Order $o) => $o->items->isNotEmpty() && $o->subtotal === $o->items->sum('line_total')))->toBeTrue()
-        ->and($orders->every(fn (Order $o) => $o->shipped_at->greaterThanOrEqualTo($o->paid_at)))->toBeTrue();
+        ->and($orders->every(fn (Order $o) => $o->items->isNotEmpty() && $o->subtotal === $o->items->sum('line_total')))->toBeTrue();
+
+    $byStatus = $orders->groupBy(fn (Order $o) => $o->status->value);
+    expect(array_keys($byStatus->all()))->toEqualCanonicalizing(['paid', 'shipped', 'completed'])
+        // 未発送（paid）は直近 2 日で、発送日なし。必ず 2 件以上ある
+        ->and($byStatus['paid']->count())->toBeGreaterThanOrEqual(2)
+        ->and($byStatus['paid']->every(fn (Order $o) => $o->shipped_at === null && $o->paid_at->greaterThan(now()->subHours(48))))->toBeTrue()
+        // 受け取り待ち（shipped）は 2〜14 日前、完了（completed）はそれより前。どちらも発送日は決済日より後
+        ->and($byStatus['shipped']->every(fn (Order $o) => $o->paid_at->between(now()->subDays(14), now()->subHours(48))))->toBeTrue()
+        ->and($byStatus['completed']->every(fn (Order $o) => $o->paid_at->lessThanOrEqualTo(now()->subDays(14))))->toBeTrue()
+        ->and($orders->whereNotNull('shipped_at')->every(fn (Order $o) => $o->shipped_at->greaterThanOrEqualTo($o->paid_at)))->toBeTrue();
 });
 
 it('日付は過去 12 か月に収まり、今月と先月の注文がある（日本時間）', function () {

@@ -18,8 +18,11 @@ use Illuminate\Support\Str;
  * 売上ダッシュボードを見せるためのデモ注文（R4 追加。2026-10-17 ユーザーの案）。
  *
  * - デモ会員 10 人（demo01〜10@example.com。ログインは想定しないのでパスワードはランダム）
- * - 各会員が過去 12 か月のあいだに 2〜5 回、1〜3 品（各 1〜2 個）を買う。全部「支払い済み → 発送済み」
- * - 日付は「流した日」が基準。今月と先月は多めにして、日別グラフと前月比が寂しくならないようにする
+ * - 各会員が過去 12 か月のあいだに 2〜5 回、1〜3 品（各 1〜2 個）を買う
+ * - 状態は注文の古さで分ける（2026-10-17 変更。運用ダッシュボードの「未発送」「受け取り待ち」に並ぶように）:
+ *   直近 2 日 = paid（未発送）/ 2〜14 日前 = shipped（受け取り待ち）/ それより前 = completed
+ * - 日付は「流した日」が基準。今月と先月は多めにして、日別グラフと前月比が寂しくならないようにする。
+ *   直近 2 日にも必ず 2〜4 件入れる（未発送の一覧と「今日の売上」が空にならないように）
  * - 流し直すと、デモ会員の注文を消して作り直す（月が変わると「今月」が空になるので、見せる前に流し直す）
  *
  * 本番のイメージには Faker（開発用パッケージ）が入らないので、factory は使わずに値を直接書く。
@@ -33,6 +36,12 @@ class DemoOrderSeeder extends Seeder
     private const RANDOM_SEED = 20261017;
 
     private const TIME_ZONE = 'Asia/Tokyo';
+
+    /** これより新しい注文は paid（未発送） */
+    private const UNSHIPPED_HOURS = 48;
+
+    /** これより古い注文は completed（受け取り済み） */
+    private const COMPLETED_AFTER_DAYS = 14;
 
     /** [名前, 郵便番号, 都道府県, 市区町村, 番地] */
     private const CUSTOMERS = [
@@ -95,7 +104,7 @@ class DemoOrderSeeder extends Seeder
     }
 
     /**
-     * 注文の日時（paid_at）。11〜2 か月前は月 1〜3 件、先月と今月は 6 件前後。
+     * 注文の日時（paid_at）。11〜2 か月前は月 1〜3 件、先月と今月は 6 件前後、直近 2 日に 2〜4 件。
      * 今月の分は「今日まで」に収める
      *
      * @return list<Carbon>
@@ -115,6 +124,10 @@ class DemoOrderSeeder extends Seeder
                 // 今日の分がまだ来ていない時刻になったら、少し前にずらす
                 $dates[] = $paidAt->greaterThan($now) ? $now->copy()->subMinutes(mt_rand(10, 120)) : $paidAt;
             }
+        }
+
+        for ($i = mt_rand(2, 4); $i > 0; $i--) {
+            $dates[] = $now->copy()->subMinutes(mt_rand(30, self::UNSHIPPED_HOURS * 60 - 60));
         }
 
         usort($dates, fn (Carbon $a, Carbon $b) => $a <=> $b);
@@ -148,23 +161,27 @@ class DemoOrderSeeder extends Seeder
         $subtotal = $lines->sum('line_total');
         $shippingFee = $subtotal >= config('shop.free_shipping_threshold') ? 0 : (int) config('shop.shipping_fee');
         $placedAt = $paidAt->copy()->subMinutes(mt_rand(2, 15));
-        // 発送は 1〜3 日後。まだ来ていなければ今にする
-        $shippedAt = $paidAt->copy()->addDays(mt_rand(1, 3))->setTime(mt_rand(10, 18), 0);
-        if ($shippedAt->isFuture()) {
-            $shippedAt = now(self::TIME_ZONE);
+        $status = $this->statusFor($paidAt);
+        // 発送は 1〜3 日後。まだ来ていなければ今にする。未発送（paid）は null
+        $shippedAt = null;
+        if ($status !== OrderStatus::Paid) {
+            $shippedAt = $paidAt->copy()->addDays(mt_rand(1, 3))->setTime(mt_rand(10, 18), 0);
+            if ($shippedAt->isFuture()) {
+                $shippedAt = now(self::TIME_ZONE);
+            }
         }
         [$name, $postalCode, $prefecture, $city, $line1] = $address;
 
         $order = new Order([
             'user_id' => $customer->id,
             'order_number' => $this->nextOrderNumber($placedAt),
-            'status' => OrderStatus::Shipped,
+            'status' => $status,
             'subtotal' => $subtotal,
             'shipping_fee' => $shippingFee,
             'total' => $subtotal + $shippingFee,
             // DB は UTC。日本時間の Carbon をそのまま入れると、壁時計の時刻のまま保存されて 9 時間ずれる
             'paid_at' => $paidAt->copy()->utc(),
-            'shipped_at' => $shippedAt->copy()->utc(),
+            'shipped_at' => $shippedAt?->copy()->utc(),
             'ship_recipient_name' => $name,
             'ship_postal_code' => $postalCode,
             'ship_prefecture' => $prefecture,
@@ -182,6 +199,18 @@ class DemoOrderSeeder extends Seeder
             'amount' => $order->total,
             'stripe_charge_id' => 'ch_demo_'.$order->order_number,
         ]);
+    }
+
+    /** 注文の古さで状態を決める（直近 2 日 = 未発送 / 14 日以内 = 受け取り待ち / それより前 = 完了） */
+    private function statusFor(Carbon $paidAt): OrderStatus
+    {
+        $now = now(self::TIME_ZONE);
+
+        return match (true) {
+            $paidAt->greaterThan($now->copy()->subHours(self::UNSHIPPED_HOURS)) => OrderStatus::Paid,
+            $paidAt->greaterThan($now->copy()->subDays(self::COMPLETED_AFTER_DAYS)) => OrderStatus::Shipped,
+            default => OrderStatus::Completed,
+        };
     }
 
     /**

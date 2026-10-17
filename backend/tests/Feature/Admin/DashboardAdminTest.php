@@ -8,13 +8,12 @@ use App\Models\User;
 
 // config('shop.low_stock_threshold') = 5
 
-it('reports order counts, revenue and stock alerts', function () {
-    // 売上に入るのは paid / shipped / completed のみ
-    Order::factory()->paid()->create(['total' => 10_000]);
-    Order::factory()->shipped()->create(['total' => 20_000]);
-    Order::factory()->create(['status' => OrderStatus::Completed, 'total' => 5_000]);
-    Order::factory()->pending()->create(['total' => 99_000]);   // revenue に入らない
-    Order::factory()->cancelled()->create(['total' => 88_000]); // revenue に入らない
+it('counts what the admin has to do: unshipped, awaiting delivery and stock alerts', function () {
+    Order::factory()->count(2)->paid()->create();   // 未発送
+    Order::factory()->shipped()->create();          // 受け取り待ち
+    Order::factory()->create(['status' => OrderStatus::Completed]);
+    Order::factory()->pending()->create();          // 決済待ちは出さない（30 分で自動キャンセル）
+    Order::factory()->cancelled()->create();
 
     // 在庫アラート（公開商品・全 variant 合算）
     $soldOut = Product::factory()->create();
@@ -35,23 +34,31 @@ it('reports order counts, revenue and stock alerts', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->getJson('/api/admin/stats')
         ->assertOk()
-        ->assertJsonPath('data.orders_count', 5)
-        ->assertJsonPath('data.revenue_total', 35_000)
-        ->assertJsonPath('data.pending_count', 1)
+        ->assertExactJsonStructure(['data' => [
+            'unshipped_count', 'awaiting_delivery_count', 'low_stock_count', 'sold_out_count',
+            'unshipped_orders' => ['*' => ['order_number', 'status', 'total', 'item_count', 'customer' => ['id', 'name', 'email'], 'placed_at', 'paid_at']],
+        ]])
+        ->assertJsonPath('data.unshipped_count', 2)
+        ->assertJsonPath('data.awaiting_delivery_count', 1)
         ->assertJsonPath('data.sold_out_count', 1)
-        ->assertJsonPath('data.low_stock_count', 1)
-        ->assertJsonStructure(['data' => ['recent_orders' => [['order_number', 'status', 'total', 'customer']]]]);
+        ->assertJsonPath('data.low_stock_count', 1);
 });
 
-it('caps recent_orders at five, newest first', function () {
-    Order::factory()->count(8)->create();
+it('lists only unshipped (paid) orders, oldest payment first, up to twenty like the order list', function () {
+    $newest = Order::factory()->paid()->create(['paid_at' => now()->subHour()]);
+    $oldest = Order::factory()->paid()->create(['paid_at' => now()->subDays(3)]);
+    Order::factory()->count(19)->paid()->create(['paid_at' => now()->subDay()]);
+    Order::factory()->shipped()->create(['paid_at' => now()->subDays(5)]); // 発送済みは並ばない
 
-    $recent = $this->actingAs(User::factory()->admin()->create())
+    $orders = $this->actingAs(User::factory()->admin()->create())
         ->getJson('/api/admin/stats')
         ->assertOk()
-        ->json('data.recent_orders');
+        ->json('data.unshipped_orders');
 
-    expect($recent)->toHaveCount(5);
+    expect($orders)->toHaveCount(20)
+        ->and($orders[0]['order_number'])->toBe($oldest->order_number)
+        ->and(array_column($orders, 'status'))->each->toBe('paid')
+        ->and(array_column($orders, 'order_number'))->not->toContain($newest->order_number); // 21 件目
 });
 
 it('rejects a non-admin', function () {

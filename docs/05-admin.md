@@ -14,7 +14,7 @@
 
 | パス | 内容 |
 |---|---|
-| `/admin` | ダッシュボード（注文件数・pending 件数・在庫僅少/切れの商品数・最近の注文5件） |
+| `/admin` | 運用ダッシュボード。**管理者が次にやること**: 未発送（paid）・受け取り待ち（shipped）・在庫わずか・売り切れの数と、未発送の注文（決済の古い順に 20 件。注文一覧の 1 ページとそろえる）。2026-10-17 ユーザーの判断で、注文件数・pending 件数・最近の注文 5 件から変更（pending は 30 分で自動キャンセルされ、やることが無いため） |
 | `/admin/sales` | **売上ダッシュボード（R4 追加）**。下の「売上ダッシュボード」節。運用のダッシュボードとは別ページ（2026-10-16 ユーザーの判断） |
 | `/admin/products` | 商品一覧（未公開含む、検索・カテゴリ絞り込み・ページング） |
 | `/admin/products/new` | 商品新規作成 |
@@ -81,7 +81,7 @@ R3 は「売上を表示しない」方針だったが、2026-10-15 に撤回。
 ### ダッシュボード
 | メソッド | パス | 返却 |
 |---|---|---|
-| GET | `/api/admin/stats` | `{ orders_count, revenue_total, pending_count, low_stock_count, sold_out_count, recent_orders: [...] }`。`revenue_total` = `status IN (paid, shipped, completed)` の `total` 合計 |
+| GET | `/api/admin/stats` | `{ unshipped_count, awaiting_delivery_count, low_stock_count, sold_out_count, unshipped_orders: [...] }`。`unshipped_orders` = paid の注文を `paid_at` の古い順に 20 件（R4 2026-10-17 変更。売上は `/api/admin/sales`） |
 | GET | `/api/admin/sales` | **R4 追加**。売上ダッシュボード一式（下記）。日別・月別の両方を 1 回で返し、グラフの切り替えはフロントだけで行う（データは最大 31 + 12 点と小さいので再取得しない）。`?month=YYYY-MM` でランキングの月を選ぶ（過去 12 か月以外は 422。省略は今月） |
 
 `GET /api/admin/sales` のレスポンス:
