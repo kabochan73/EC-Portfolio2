@@ -490,3 +490,11 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - `next build` は入れない（ISR のページをビルド時に Laravel から作るため。ビルドの確認はデプロイで。R3 と同じ）
 - `frontend/.nvmrc`（R4 には無かった）
 - 確認（push の前にローカルで）: backend コンテナで Pint 214 files PASS・Pest 231 passed。frontend は `git archive` で Git に入っているファイルだけを取り出し、素の `node:22` コンテナで `npm ci` → tsc → lint → vitest（69 passed）。push と GitHub Actions の結果はユーザーが確認
+
+**デプロイ準備 — 2026-10-17 デモ注文の seeder（R4 追加。ユーザーの案）**（1 コミット）
+- `DemoOrderSeeder`: デモ会員 10 人（demo01〜10@example.com）が過去 12 か月に 2〜5 回ずつ買った注文（ローカルで 34 件）。全部 shipped + payments succeeded（`pi_demo_…`）。今月・先月は 5〜7 件、ほかの月は 1〜3 件。`DatabaseSeeder` からは呼ばず `db:seed --class=DemoOrderSeeder --force` で個別に流す
+  - 流し直すとデモ会員の注文を消して「今日」基準で作り直す（月が変わると「今月」が空になるので、見せる前に流し直す）
+  - 本番には Faker（dev 依存）が入らないので factory は使わず値を直書き。乱数はシード固定。在庫は減らさず、メールも送らない
+  - 詰まり: 日本時間の Carbon をそのまま Eloquent に入れると、タイムゾーンを変換せず壁時計の数字で保存されて 9 時間ずれる → `->utc()` してから入れる
+- `DemoOrderSeederTest`（4 tests）: 全部 shipped・決済成功・小計 = 明細の合計 / 過去 12 か月に収まり今月・先月が 5 件以上 / 注文番号は注文日（JST）/ 流し直しても増えず、本物の注文と在庫に触らない
+- 本番の管理者: ユーザーの判断で 1 つ（自分の Gmail）を面接官にも見せる。値は Railway の Variables（`ADMIN_*`）にだけ書く
