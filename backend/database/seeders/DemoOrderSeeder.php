@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -73,7 +74,7 @@ class DemoOrderSeeder extends Seeder
         mt_srand(); // ほかの処理の乱数に影響しないよう戻す
     }
 
-    /** @return \Illuminate\Support\Collection<int, User> */
+    /** @return Collection<int, User> */
     private function upsertCustomers()
     {
         return collect(self::CUSTOMERS)->map(function (array $customer, int $index) {
@@ -123,7 +124,7 @@ class DemoOrderSeeder extends Seeder
 
     /**
      * @param  list<string>  $address  CUSTOMERS の 1 行
-     * @param  \Illuminate\Support\Collection<int, Product>  $products
+     * @param  Collection<int, Product>  $products
      */
     private function createOrder(User $customer, array $address, $products, Carbon $paidAt): void
     {

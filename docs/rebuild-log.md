@@ -498,3 +498,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - 詰まり: 日本時間の Carbon をそのまま Eloquent に入れると、タイムゾーンを変換せず壁時計の数字で保存されて 9 時間ずれる → `->utc()` してから入れる
 - `DemoOrderSeederTest`（4 tests）: 全部 shipped・決済成功・小計 = 明細の合計 / 過去 12 か月に収まり今月・先月が 5 件以上 / 注文番号は注文日（JST）/ 流し直しても増えず、本物の注文と在庫に触らない
 - 本番の管理者: ユーザーの判断で 1 つ（自分の Gmail）を面接官にも見せる。値は Railway の Variables（`ADMIN_*`）にだけ書く
+
+**Step 52a — 2026-10-17 本番用の Dockerfile**（1 コミット）
+- `backend/{Dockerfile,railway.json,.dockerignore}`・`frontend/{Dockerfile,railway.json,.dockerignore}` を R3 からコピー（`.dockerignore` に Dockerfile を入れない・`railway.json` で DOCKERFILE ビルダを指定、は R3 の罠の対策のまま）
+  - **R4 変更**: backend の Dockerfile のコメントに scheduler（Start Command = `php artisan schedule:work`）を追記。frontend の Dockerfile から `NEXT_PUBLIC_SITE_URL` を外した（R4 のコードは使っていない）
+- 確認（ローカルでビルド）: backend イメージで `class_exists(Faker\Factory)` が false（`--no-dev`）の状態で `DemoOrderSeeder` が流れる。frontend は `API_URL=host.docker.internal:8000` でビルド → トップは ○（ISR 10 分）、起動して `/`・`/products/…`・`/media/…` が 200、`/bff/health` が backend・DB とも ok、存在しない URL は 404
+- `DemoOrderSeeder` の Pint の指摘（docblock の完全修飾名 → use 文）もここで直した。直前のコミットで Pint を流し忘れていた

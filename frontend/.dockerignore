@@ -1,0 +1,15 @@
+.git
+.gitignore
+node_modules
+.next
+out
+coverage
+npm-debug.log*
+.env
+.env.*
+!.env.example
+tests
+vitest.config.mts
+vitest.setup.ts
+Dockerfile.dev
+README.md
