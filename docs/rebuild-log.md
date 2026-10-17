@@ -472,3 +472,13 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 確認（CDP）: 404 → `/no-such-page` は素の 404・`/products/no-such-product` はヘッダー付き・`/admin/products/99999` と `/admin/orders/EC-XXXX` はサイドバー付き（すべて HTTP 404）。backend を止めて `/admin/orders` → `app/error.tsx`、`/account/orders` → `(shop)/error.tsx`、`/checkout/payment?order=…` → 決済の error.tsx（Back to Cart）。390px でストア 11 ページ・管理画面 11 ページすべて scrollWidth 390（横スクロールなし）
 
 ### フロントエンド完成（Step 31〜49）
+
+### Phase 8 — テスト・CI・デプロイ
+
+**Step 50 — 2026-10-17 フロントエンドのテスト（Vitest + Testing Library）**（2 コミット）
+- 重い E2E（Playwright）は入れない（R3 と同じ）。`frontend/tests/` にソースと同じ構造で置く。`npm test` = `vitest run`
+- 50a 土台（`vitest.config.mts`・`vitest.setup.ts` は R3 からコピー。`@types/node` は R3 で衝突した `^20` を避けて `^22`）+ ロジック: cart-summary（`lineProblem`・`untilFreeShipping` も）/ cart ストア（1 明細 10 個で止まる）/ login-redirect / revalidate / schemas
+  - **R4 追加**: `format`（日本時間の日付の境目。テストは `TZ=UTC` で動かし、UTC 15:00 → 翌日の日付を確かめる。R3 の書き方だと同じ時刻が前日になるのも確認）、`form-errors`（422 を欄に割り当てる・409 は message）、`moveItem`
+- 50b コンポーネント: VariantSelector / CartLine（上限 10 の + も）/ OrderStatusActions（R4 の状態別ボタンと確認文）
+  - **R4 追加**: `SalesChart`（日別 31 本・最大の日が 100%・月別 12 本に切り替え・日別ラベル 1/5/…/30・売上 0 の期間は 0%）
+- **合計 69 tests（12 ファイル）**。act 警告なし
