@@ -482,3 +482,11 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 50b コンポーネント: VariantSelector / CartLine（上限 10 の + も）/ OrderStatusActions（R4 の状態別ボタンと確認文）
   - **R4 追加**: `SalesChart`（日別 31 本・最大の日が 100%・月別 12 本に切り替え・日別ラベル 1/5/…/30・売上 0 の期間は 0%）
 - **合計 69 tests（12 ファイル）**。act 警告なし
+
+**Step 51 — 2026-10-17 CI（GitHub Actions）**（1 コミット）
+- `.github/workflows/ci.yml`（R3 からコピー）。main への push / PR で 2 ジョブを並列に
+  - backend: `postgres:16` service + `shivammathur/setup-php@v2`（8.4）→ `pint --test` → `php artisan test`（`DB_HOST=127.0.0.1` で phpunit.xml の `db` を上書き）
+  - frontend: `setup-node`（`.nvmrc` = 22）→ `npm ci` → `tsc --noEmit` → lint → vitest
+  - `next build` は入れない（ISR のページをビルド時に Laravel から作るため。ビルドの確認はデプロイで。R3 と同じ）
+- `frontend/.nvmrc`（R4 には無かった）
+- 確認（push の前にローカルで）: backend コンテナで Pint 214 files PASS・Pest 231 passed。frontend は `git archive` で Git に入っているファイルだけを取り出し、素の `node:22` コンテナで `npm ci` → tsc → lint → vitest（69 passed）。push と GitHub Actions の結果はユーザーが確認

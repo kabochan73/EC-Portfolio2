@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同じブランチで新しく push されたら、古い実行は止める
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend (Pint + Pest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      # phpunit.xml の DB（ecp_test / ecp / ecpsecret）と揃える
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ecp
+          POSTGRES_PASSWORD: ecpsecret
+          POSTGRES_DB: ecp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ecp -d ecp_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, pdo, pdo_pgsql, pgsql, bcmath, intl, curl
+          coverage: none
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+        with:
+          working-directory: backend
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Pint (code style)
+        run: ./vendor/bin/pint --test
+
+      - name: Pest
+        env:
+          # phpunit.xml は DB_HOST=db（ローカルの docker compose 用）。CI では postgres を
+          # localhost に出しているので、実際の環境変数で上書きする（phpunit の <env> は強制ではない）
+          DB_HOST: 127.0.0.1
+        run: php artisan test
+
+  frontend:
+    name: frontend (tsc + lint + vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Vitest
+        run: npm test
+
+      # next build は入れない: トップページなどを Laravel から取ってビルド時に作る（ISR）ため、
+      # CI に Laravel が要る。ビルドの確認は Railway のデプロイに任せる（R3 と同じ判断）
