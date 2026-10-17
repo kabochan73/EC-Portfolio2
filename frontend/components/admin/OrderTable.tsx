@@ -12,7 +12,7 @@ type Props = {
 };
 
 /**
- * 管理向けの注文一覧の表（ダッシュボードの最近の注文・/admin/orders・/admin/customers/[id] で共用）。
+ * 管理向けの注文一覧の表（ダッシュボードの未発送の注文・/admin/orders・/admin/customers/[id] で共用）。
  * R4 は最初からこの部品として作る（R3 はダッシュボードに別の表を書き、後から共通化していた）。
  */
 export default function OrderTable({ orders, showCustomer = true, emptyText = "No orders found." }: Props) {

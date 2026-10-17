@@ -521,3 +521,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 53a backend: `GET /api/admin/sales?month=YYYY-MM`（過去 12 か月だけ。範囲外・形式違いは 422、省略は今月）。`SalesPeriod::month()` / `monthBefore()` / `currentMonth()`、`GetSalesDashboard` はランキングだけ選んだ月で集計し、前月比は「選んだ月 ÷ その前の月」。レスポンスに `ranking_month`。KPI と日別・月別グラフは今月のまま（ユーザーの判断で日別は切り替えない）。テスト 6 件（Unit: 9 月とその前・年またぎ・3 月の前は 2 月 / Feature: 9 月を選ぶと 8 月と比べる・JST 8/31 23:30 は 8 月・KPI は今月のまま・範囲外 4 パターンが 422）
 - 53b frontend: URL は `/admin/sales?month=2026-09`（page の SC が searchParams で読む。422 なら今月へ redirect）。`RankingMonthNav`（SC。「‹ 2026/09 ›」のリンク、`scroll={false}`）、`SalesChart` の月別の棒をリンクに（選んでいる月だけ濃く、ほかは薄く。`?month=` 付きで開いたら月別から表示。月別は棒がリンクなので role="img" ではなく role="group"）。ランキングの列名 Last Month → Prev Month。Vitest 5 件追加（合計 74）
 - 確認（CDP）: 月別の 9 月の棒をクリック → `?month=2026-09`・見出し (2026/09)・9 月の棒だけ濃い・スクロール位置はそのまま → ‹ で 8 月 → `?month=2026-09` を直接開くと月別から表示 → `?month=2030-01` は `/admin/sales` へ。スマホは横スクロールなし
+
+**Step 54 — 2026-10-17 運用ダッシュボードを「次にやること」に（ユーザーの案）**（2 コミット）
+- きっかけ: Recent Orders は「id の新しい順に 5 件」なだけで、次に何をすればいいか分からない（デモ注文を流し直すと日付順にも並ばない）
+- 54a backend: `GET /api/admin/stats` を `{ unshipped_count, awaiting_delivery_count, low_stock_count, sold_out_count, unshipped_orders }` に。`unshipped_orders` は paid の注文を `paid_at` の古い順に 20 件（注文一覧の 1 ページとそろえる。ユーザーの案）。注文件数・売上合計・pending 件数・最近の注文はやめた（pending は 30 分で自動キャンセルされ、管理者がやることが無い。代わりに shipped = 受け取り待ち）。`DemoOrderSeeder` は注文の古さで状態を分ける（直近 2 日 = paid・14 日以内 = shipped・それより前 = completed。直近 2 日に必ず 2〜4 件）
+- 54b frontend: カード 4 枚（Unshipped → `/admin/orders?status=paid`、Awaiting Delivery → `?status=shipped`、Low Stock・Sold Out は数だけ。商品が少ないので在庫の絞り込みは作らない＝ユーザーの判断）、`StatCard` に `href`、カードの下に Unshipped Orders（Oldest First）と、20 件を超えたら View All
+- 確認（CDP）: ローカルで paid 5・shipped 4・completed 30 → カード 5 / 4 / 0 / 0、未発送の一覧は決済の古い順に 5 件、Unshipped を押すと注文一覧が paid だけに絞られる。スマホは横スクロールなし

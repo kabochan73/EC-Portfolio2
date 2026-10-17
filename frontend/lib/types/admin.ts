@@ -17,14 +17,16 @@ export type AdminOrderListItem = {
   paid_at: string | null;
 };
 
-// GET /api/admin/stats（revenue_total は累計。月・日の売上は売上ダッシュボード API が担当）
+// GET /api/admin/stats（運用ダッシュボード。管理者が次にやることの数と、未発送の注文。R4 2026-10-17 変更）
 export type DashboardStats = {
-  orders_count: number;
-  revenue_total: number;
-  pending_count: number;
-  sold_out_count: number;
+  /** 未発送 = paid の注文数 */
+  unshipped_count: number;
+  /** 受け取り待ち = shipped の注文数（届いたら completed にする） */
+  awaiting_delivery_count: number;
   low_stock_count: number;
-  recent_orders: AdminOrderListItem[];
+  sold_out_count: number;
+  /** 未発送の注文。決済の古い順に最大 20 件（注文一覧の 1 ページとそろえる） */
+  unshipped_orders: AdminOrderListItem[];
 };
 
 // ── 売上ダッシュボード（GET /api/admin/sales。R4 の新機能。docs/05-admin.md）──
