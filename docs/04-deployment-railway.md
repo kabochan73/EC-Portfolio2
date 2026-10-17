@@ -1,5 +1,14 @@
 # デプロイ構成（Railway + Docker）（R4）
 
+> **R4 デプロイ実績（2026-10-17）** — Railway project `EC-Portfolio2`（R3 の `EC-Portfolio` は比較用に残す）
+> - frontend: `https://frontend-production-e5f4e.up.railway.app` / backend: `https://backend-production-e912a.up.railway.app`（どちらも domain target port 8080）
+> - queue / scheduler / Postgres 18 / bucket `ec-portfolio2-media-jrkym2`（region sin）は内部のみ。サービスの region は R3 と同じ sfo
+> - 5 サービスとも GitHub `kabochan73/EC-Portfolio2` の main に接続。Root Directory は backend 系 `/backend`・frontend `/frontend`、Watch Paths で自分のディレクトリが変わったときだけ再デプロイ
+> - Stripe は test モード。R4 用の Webhook エンドポイントを Stripe CLI で作成（`stripe webhook_endpoints create`）。Stripe / Resend のキーは R3 からコピー、`APP_KEY` と `BFF_SHARED_SECRET` は新規
+> - 管理者は `ADMIN_*`（Railway Variables のみ）。初期データは `railway ssh -i <鍵> --service backend "php artisan db:seed --force"` → `--class=DemoOrderSeeder --force`
+> - **R4 で踏んだ罠**: CLI の `railway environment edit --service-config` で source / rootDirectory を入れても「No changes to apply」で反映されなかった → MCP の `update_service`（root directory・Dockerfile・watch patterns・start command）と `connect_service_source` で設定。`railway ssh` は手元の鍵を順に試して失敗することがある → `-i` で Railway に登録済みの鍵を指定。`resend/resend-php` が入っておらずメールのジョブが `Class "Resend" not found` で失敗（R3 はデプロイ後に追加していた）→ composer require
+> - デモ注文（売上ダッシュボード用）は月が変わると「今月」が空になるので、見せる前に `DemoOrderSeeder` を流し直す
+
 > **R3 デプロイ実績（2026-09-08）** — Railway project `EC-Portfolio`
 > - frontend: `https://frontend-production-af2f.up.railway.app`（domain target port **8080**。Railway が `PORT` を注入し Next がそれで listen するため）
 > - backend: `https://backend-production-6d3d.up.railway.app`（serversideup、port 8080）

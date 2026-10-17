@@ -504,3 +504,14 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
   - **R4 変更**: backend の Dockerfile のコメントに scheduler（Start Command = `php artisan schedule:work`）を追記。frontend の Dockerfile から `NEXT_PUBLIC_SITE_URL` を外した（R4 のコードは使っていない）
 - 確認（ローカルでビルド）: backend イメージで `class_exists(Faker\Factory)` が false（`--no-dev`）の状態で `DemoOrderSeeder` が流れる。frontend は `API_URL=host.docker.internal:8000` でビルド → トップは ○（ISR 10 分）、起動して `/`・`/products/…`・`/media/…` が 200、`/bff/health` が backend・DB とも ok、存在しない URL は 404
 - `DemoOrderSeeder` の Pint の指摘（docblock の完全修飾名 → use 文）もここで直した。直前のコミットで Pint を流し忘れていた
+
+**Step 52b — 2026-10-17 Railway デプロイ（本番稼働）**
+- 新しいプロジェクト `EC-Portfolio2`（R3 は比較用に残す）に Postgres・bucket（sin）・backend・queue・scheduler・frontend。詳細は docs/04 の冒頭
+  - frontend `https://frontend-production-e5f4e.up.railway.app` / backend `https://backend-production-e912a.up.railway.app`
+- 進め方（R3 の罠を避ける順番）: 変数・ドメイン・Stripe Webhook を先に用意 → **backend だけ先に**接続（起動時に migrate）→ seed + `DemoOrderSeeder` → queue / scheduler / frontend を接続（frontend はビルド時に backend からトップを作るので、seed の後にする。R3 は初回のトップが空だった）
+- 本番の通し確認（CDP + Stripe CLI）: 会員登録 → 注文 `EC-20261017-0001`（¥12,800）→ 決済ページに Payment Element → `stripe payment_intents confirm … pm_card_visa` → Webhook で paid → 管理者ログイン → 売上の「今日」に ¥12,800 → Cancel & Refund → cancelled・Refunded 表示・在庫 11 → 12。確認用の会員 2 人・注文・failed_jobs は、消す対象の一覧を出してから id 指定で削除
+- 詰まり:
+  - CLI の `railway environment edit --service-config` が「No changes to apply」→ MCP の `update_service` / `connect_service_source` で設定
+  - `railway ssh` が `no_ssh_key` → `-i ~/.ssh/<Railway に登録済みの鍵>`
+  - **注文確認メールのジョブが `Class "Resend" not found` で失敗**。R3 はデプロイ後の調整で `composer require resend/resend-php` していたが、R4 は引き継いでいなかった（ローカルは Mailpit なので気づけない）→ R4 でも追加
+- メールは Resend の共有ドメイン（`onboarding@resend.dev`）なので、アカウント所有者のアドレスにしか届かない。独自ドメインは費用がかかるので取らない（ユーザーの判断。ブログで説明する）
