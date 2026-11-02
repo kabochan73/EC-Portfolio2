@@ -56,7 +56,10 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            // R4（2026-11-02）: 失敗を例外にする。false（Laravel の初期値）だと、バケットのキーが合わず
+            // 保存に失敗しても put() が false を返すだけで、画像の行だけが作られて画像が出なかった
+            // （本番で発生）。削除の失敗は StorageService がログに残すだけにする
+            'throw' => true,
             'report' => false,
         ],
 

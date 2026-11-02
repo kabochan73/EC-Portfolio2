@@ -527,3 +527,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 54a backend: `GET /api/admin/stats` を `{ unshipped_count, awaiting_delivery_count, low_stock_count, sold_out_count, unshipped_orders }` に。`unshipped_orders` は paid の注文を `paid_at` の古い順に 20 件（注文一覧の 1 ページとそろえる。ユーザーの案）。注文件数・売上合計・pending 件数・最近の注文はやめた（pending は 30 分で自動キャンセルされ、管理者がやることが無い。代わりに shipped = 受け取り待ち）。`DemoOrderSeeder` は注文の古さで状態を分ける（直近 2 日 = paid・14 日以内 = shipped・それより前 = completed。直近 2 日に必ず 2〜4 件）
 - 54b frontend: カード 4 枚（Unshipped → `/admin/orders?status=paid`、Awaiting Delivery → `?status=shipped`、Low Stock・Sold Out は数だけ。商品が少ないので在庫の絞り込みは作らない＝ユーザーの判断）、`StatCard` に `href`、カードの下に Unshipped Orders（Oldest First）と、20 件を超えたら View All
 - 確認（CDP）: ローカルで paid 5・shipped 4・completed 30 → カード 5 / 4 / 0 / 0、未発送の一覧は決済の古い順に 5 件、Unshipped を押すと注文一覧が paid だけに絞られる。スマホは横スクロールなし
+
+**本番の不具合 — 2026-11-02 商品の画像が出ない（バケットのシークレットキーの食い違い）**（1 コミット）
+- 症状: 本番で商品の画像が出ない（`/media/…` が 404、next/image が 400）。Hero の画像はキャッシュ（`/media` の 1 年キャッシュと next/image のキャッシュ）に残っていたので出ていた
+- 原因: Railway のバケットのシークレットキーが、サービスの変数（backend 系の `AWS_SECRET_ACCESS_KEY` / frontend の `BUCKET_SECRET_ACCESS_KEY`）と食い違っていた（アクセスキーは一致）。バケットへのアクセスが 403。ユーザーはキーを作り直していないので、変わったきっかけは不明
+- 対処（Railway）: `railway bucket credentials` の今のシークレットを 4 サービスに入れ直し → 再デプロイ → 16 商品中 15 商品が表示。残り 1 商品は、キーが食い違っている間に差し替えた画像が保存されておらず、DB の行だけがあった → ユーザーが再アップロードし、残っていた古い画像も片付けた
+- **R4 修正（コード）**: s3 ディスクの `'throw'` を true に。Laravel の初期値 false だと、保存に失敗しても `put()` が false を返すだけで、`CreateProductImage` が画像の行を作ってしまっていた。削除の失敗は、DB の行がもう消えているので例外にせず `report()` だけ（`StorageService::deleteMany`）。テスト 3 件（保存が失敗したら行を作らない / 削除が失敗しても行は消え、例外は報告される / s3 の throw が true）

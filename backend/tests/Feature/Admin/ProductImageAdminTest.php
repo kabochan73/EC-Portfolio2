@@ -4,8 +4,12 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\User;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\UnableToDeleteFile;
+use League\Flysystem\UnableToWriteFile;
 
 beforeEach(function () {
     Storage::fake(config('filesystems.default'));
@@ -135,4 +139,38 @@ it('rejects a non-admin', function () {
             'image' => UploadedFile::fake()->create('x.jpg', 200, 'image/jpeg'),
         ])
         ->assertForbidden();
+});
+
+// R4（2026-11-02）: 本番でバケットのキーが合わなくなり、保存に失敗したのに画像の行だけが作られた。
+// s3 ディスクを 'throw' => true にし、保存の失敗はエラー・削除の失敗はログだけにした
+
+it('does not create an image row when the bucket refuses the upload', function () {
+    $product = aProduct();
+    $disk = Mockery::mock(Filesystem::class);
+    $disk->shouldReceive('put')->andThrow(UnableToWriteFile::atLocation('products/x.jpg', '403 Forbidden'));
+    Storage::shouldReceive('disk')->andReturn($disk);
+
+    $this->withoutExceptionHandling();
+    expect(fn () => $this->actingAs(admin())->postJson("/api/admin/products/{$product->id}/images", [
+        'image' => UploadedFile::fake()->create('front.jpg', 200, 'image/jpeg'),
+    ]))->toThrow(UnableToWriteFile::class);
+
+    expect(ProductImage::count())->toBe(0);
+});
+
+it('still deletes the image row when removing the object from the bucket fails, and reports it', function () {
+    Exceptions::fake();
+    $image = ProductImage::factory()->for(aProduct())->create();
+    $disk = Mockery::mock(Filesystem::class);
+    $disk->shouldReceive('delete')->andThrow(UnableToDeleteFile::atLocation($image->path, '403 Forbidden'));
+    Storage::shouldReceive('disk')->andReturn($disk);
+
+    $this->actingAs(admin())->deleteJson("/api/admin/product-images/{$image->id}")->assertNoContent();
+
+    expect(ProductImage::whereKey($image->id)->exists())->toBeFalse();
+    Exceptions::assertReported(UnableToDeleteFile::class);
+});
+
+it('fails loudly on the production disk: s3 throws instead of returning false', function () {
+    expect(config('filesystems.disks.s3.throw'))->toBeTrue();
 });

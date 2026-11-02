@@ -6,6 +6,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use League\Flysystem\FilesystemException;
 
 /**
  * S3 互換バケット（本番 Railway / ローカル RustFS）の薄いラッパー
@@ -39,9 +40,13 @@ class StorageService
         return $key;
     }
 
+    /**
+     * 削除の失敗は例外にせずログに残す（R4 2026-11-02）。DB の行はもう消えているので、
+     * ここで止めると「消えたのにエラー」になる。残るのは使われないファイルだけ
+     */
     public function delete(string $key): void
     {
-        $this->disk->delete($key);
+        $this->deleteMany([$key]);
     }
 
     /**
@@ -49,8 +54,14 @@ class StorageService
      */
     public function deleteMany(array $keys): void
     {
-        if ($keys !== []) {
+        if ($keys === []) {
+            return;
+        }
+
+        try {
             $this->disk->delete($keys);
+        } catch (FilesystemException $e) {
+            report($e);
         }
     }
 
