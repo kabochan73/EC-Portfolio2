@@ -37,7 +37,7 @@ export default function LookbookSection({ initial }: { initial: SiteContent["loo
             <img src={image.url} alt="" className="h-24 w-20 flex-none bg-mist object-cover" />
             <div className="flex-1 space-y-2">
               <input
-                value={image.alt}
+                value={image.alt ?? ""}
                 placeholder="alt テキスト"
                 aria-label={`画像 ${index + 1} の alt`}
                 onChange={(e) => update(index, { alt: e.target.value })}

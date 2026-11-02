@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { addressSchema } from "@/lib/schemas/address";
+import { lookbookSchema } from "@/lib/schemas/adminContent";
 import { adminProductSchema } from "@/lib/schemas/adminProduct";
 import { passwordSchema } from "@/lib/schemas/password";
 import { registerSchema } from "@/lib/schemas/register";
@@ -86,5 +87,18 @@ describe("adminProductSchema", () => {
     expect(adminProductSchema.safeParse({ ...valid, price: 0 }).success).toBe(false);
     const result = adminProductSchema.safeParse({ ...valid, price: "12000" });
     expect(result.success && result.data.price).toBe(12000);
+  });
+});
+
+describe("lookbookSchema（2026-11-02 の不具合）", () => {
+  const image = { url: "/media/content/lookbook/a.jpg" };
+
+  it("alt が null でも通る（空で保存すると Laravel が null にして返すので、2 回目の保存で止まっていた）", () => {
+    expect(lookbookSchema.safeParse({ images: [{ ...image, alt: null }] }).success).toBe(true);
+  });
+
+  it("alt が空文字・文字列でも通る。url が空なら落ちる", () => {
+    expect(lookbookSchema.safeParse({ images: [{ ...image, alt: "" }, { ...image, alt: "look 1" }] }).success).toBe(true);
+    expect(lookbookSchema.safeParse({ images: [{ url: "", alt: null }] }).success).toBe(false);
   });
 });

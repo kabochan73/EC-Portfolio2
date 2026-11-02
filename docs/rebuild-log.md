@@ -533,3 +533,8 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 原因: Railway のバケットのシークレットキーが、サービスの変数（backend 系の `AWS_SECRET_ACCESS_KEY` / frontend の `BUCKET_SECRET_ACCESS_KEY`）と食い違っていた（アクセスキーは一致）。バケットへのアクセスが 403。ユーザーはキーを作り直していないので、変わったきっかけは不明
 - 対処（Railway）: `railway bucket credentials` の今のシークレットを 4 サービスに入れ直し → 再デプロイ → 16 商品中 15 商品が表示。残り 1 商品は、キーが食い違っている間に差し替えた画像が保存されておらず、DB の行だけがあった → ユーザーが再アップロードし、残っていた古い画像も片付けた
 - **R4 修正（コード）**: s3 ディスクの `'throw'` を true に。Laravel の初期値 false だと、保存に失敗しても `put()` が false を返すだけで、`CreateProductImage` が画像の行を作ってしまっていた。削除の失敗は、DB の行がもう消えているので例外にせず `report()` だけ（`StorageService::deleteMany`）。テスト 3 件（保存が失敗したら行を作らない / 削除が失敗しても行は消え、例外は報告される / s3 の throw が true）
+
+**本番の不具合 — 2026-11-02 Lookbook を 2 回目に保存できない（「Expected string, received null」）**（1 コミット）
+- 原因: alt を空で保存すると、Laravel の `ConvertEmptyStringsToNull` が `""` を `null` にして保存する。次に編集すると、zod の `alt: z.string()` が null を弾いていた（backend の検証は `nullable` で、null を許している）。本番の 8 枚すべてが `alt: null` だった。ローカルの確認は毎回まっさらな状態から 1 回しか保存していなかったので気づかなかった
+- 修正（frontend）: `lookbookSchema` の alt を `.nullable()`、`SiteContent` の型を `alt: string | null`、入力欄は `image.alt ?? ""`。トップの表示はもともと `alt || ""` で対応済み。Vitest 2 件（alt が null / 空文字 / 文字列で通る、url が空なら落ちる。合計 76）
+- 確認（ローカル）: alt を空で保存 → API が `[null, null]` を返す → 管理画面を開き直して Save Lookbook → 「保存しました」。元のデータに戻した

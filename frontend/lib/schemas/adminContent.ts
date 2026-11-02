@@ -14,7 +14,9 @@ export const conceptSchema = z.object({
 
 export const lookbookSchema = z.object({
   images: z
-    .array(z.object({ url: z.string().min(1).max(255), alt: z.string().max(255) }))
+    // alt は null も許す（2026-11-02 修正）。空のまま保存すると Laravel の ConvertEmptyStringsToNull が
+    // "" を null にして保存するので、2 回目の編集で「Expected string, received null」になっていた
+    .array(z.object({ url: z.string().min(1).max(255), alt: z.string().max(255).nullable() }))
     .max(12, "画像は 12 枚までです"),
 });
 

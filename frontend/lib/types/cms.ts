@@ -3,7 +3,8 @@
 export type SiteContent = {
   hero: { headline: string; tagline: string; image_url: string | null };
   concept: { body: string };
-  lookbook: { images: { url: string; alt: string }[] };
+  /** alt は空で保存すると null で返ってくる（Laravel が空文字を null にする） */
+  lookbook: { images: { url: string; alt: string | null }[] };
   about: {
     blocks: { label: string; heading: string; body: string; image_url: string | null }[];
   };
