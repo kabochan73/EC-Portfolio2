@@ -56,7 +56,8 @@ queue:
   environment:
     SSL_MODE: "off"
     AUTORUN_ENABLED: "false"
-  env_file: ./backend/.env
+  # env_file は使わない（Laravel は ./backend/.env を自分で読む）。env_file で注入すると APP_ENV / DB_* が
+  # 実際の環境変数になり、phpunit.xml の <env> がテスト DB を上書きできず、テストが開発 DB を作り直す（R3 の罠）
   depends_on:
     db: { condition: service_healthy }
     mailpit: { condition: service_started }
@@ -106,8 +107,7 @@ backend:
     SSL_MODE: "off"
     PHP_OPCACHE_ENABLE: "0"
     AUTORUN_ENABLED: "false"
-    PHP_FPM_POOL_NAME: "ecp"
-  env_file: ./backend/.env
+  # env_file は使わない（queue と同じ理由）
   ports: ["8000:8080"]
   depends_on:
     db: { condition: service_healthy }
@@ -164,18 +164,21 @@ Mac（Docker Desktop）向けに polling: `WATCHPACK_POLLING=true` / `CHOKIDAR_U
 | `STRIPE_SECRET_KEY` | `sk_test_...`（未入手なら空でも起動はする。決済フローを触るときに設定） |
 | `STRIPE_PUBLISHABLE_KEY` | `pk_test_...` |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_...`（`stripe listen` が表示する値） |
+| `BFF_SHARED_SECRET` | frontend と同じ値（ローカルは空でよい） |
+| `ADMIN_NAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` | ローカルの管理者（`AdminUserSeeder`。変えたら seeder を流し直す） |
 
 ### frontend/.env.local（要点）
 
 | 変数 | 値 |
 |---|---|
 | `API_URL` | `http://backend:8080` |
-| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | `pk_test_...` |
+| `BFF_SHARED_SECRET` | backend と同じ値（ローカルは空でよい） |
 | `BUCKET_ENDPOINT` | `http://rustfs:9000` |
 | `BUCKET_ACCESS_KEY_ID` / `BUCKET_SECRET_ACCESS_KEY` | `ecp` / `ecpsecret` |
 | `BUCKET_NAME` | `ec-portfolio-media` |
 | `BUCKET_REGION` | `us-east-1` |
+
+`NEXT_PUBLIC_*` は使わない（Stripe の publishable key は API が返す）。`BUCKET_FORCE_PATH_STYLE` は未設定 = `true`（RustFS 向け）。
 
 ## 初回セットアップ
 
@@ -188,6 +191,7 @@ docker compose up -d --build
 docker compose exec backend composer install
 docker compose exec backend php artisan key:generate
 docker compose exec backend php artisan migrate --seed
+docker compose exec backend php artisan db:seed --class=DemoOrderSeeder   # 任意。売上ダッシュボード用のデモ注文
 
 cd frontend && npm ci    # ホスト。IDE 補完・型チェック用
 ```
@@ -225,6 +229,7 @@ docker compose exec backend php artisan tinker
 docker compose exec backend php artisan queue:work --once
 docker compose exec backend php artisan queue:failed
 
+docker compose exec frontend npm test               # Vitest
 docker compose exec frontend npm run lint
 docker compose exec frontend npx tsc --noEmit
 ```
@@ -268,4 +273,5 @@ docker compose exec frontend npx tsc --noEmit
 | frontend | `next dev` | `next start`（standalone） |
 | メール | Mailpit（SMTP） | Resend（`MAIL_MAILER=resend`） |
 | Stripe webhook | `stripe listen` が転送 | Stripe → backend 公開 URL 直 |
-| キュー | `queue` コンテナ | Railway の queue サービス（backend 複製 + Start Command 上書き） |
+| キュー / スケジューラ | `queue` / `scheduler` コンテナ | Railway の queue / scheduler サービス（backend と同じイメージ + Start Command 上書き） |
+| PostgreSQL | 16 | 18 |

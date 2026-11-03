@@ -12,7 +12,7 @@
 |---|---|
 | `hero` | `{ "headline": string, "tagline": string, "image_url": string \| null }` |
 | `concept` | `{ "body": string }`（改行区切りの短い文。3〜4行） |
-| `lookbook` | `{ "images": [ { "url": string, "alt": string } ] }`（5〜6枚想定、0 でも可） |
+| `lookbook` | `{ "images": [ { "url": string, "alt": string \| null } ] }`（5〜6枚想定、0 でも可）。alt を空で保存すると Laravel の `ConvertEmptyStringsToNull` が null にするので、フロントの zod・型も null を許す（2026-11-02 の不具合） |
 | `about` | `{ "blocks": [ { "label": string, "heading": string, "body": string, "image_url": string \| null } ] }`（3ブロック想定） |
 
 - `data` は `jsonb`。Model で `'data' => 'array'` キャスト。
@@ -23,7 +23,7 @@
 
 R2 のトップページに置いていたプレースホルダ文言をそのまま初期値にする（英語のブランド世界観文 + 画像 `image_url: null`）。マイグレーション直後でもトップページが成立する。
 
-`db:seed` 時に `updateOrCreate(['key' => ...], ['data' => ...])` で冪等に。
+`db:seed` 時に `firstOrCreate(['key' => ...], ['data' => ...])` で冪等に（行が既にあれば何もしない = 管理画面で編集した内容を seed で上書きしない）。
 
 ## API
 
@@ -82,12 +82,13 @@ const [content, products, categories] = await Promise.all([getContent(), getProd
 
 各コンポーネントは値が空文字 / 空配列 / null でも壊れないこと（`image_url` null → `bg-mist` プレースホルダ、`concept.body` 空 → セクションごと出さない、など）。
 
-### 管理側（`/admin/content` + `ContentEditor`）
+### 管理側（`/admin/content`）
 
-- タブ or アコーディオンで4セクション。各セクションは独立した `<form>`（RHF + zod。`lib/schemas/siteContent.ts` に4つのスキーマ）。
-- 画像フィールド: 現在の画像プレビュー + 「画像を変更」→ `POST /bff/admin/content/{key}/images` → 返った URL を hidden field にセット → 見た目を更新。
-- Lookbook / About は配列。行の追加・削除・並べ替え（`useFieldArray`）。
-- 「保存」→ `PUT /bff/admin/content/{key}` → 成功で BFF が `revalidateTag('content')` → トースト「保存しました。トップページに反映されます」。
+- page（Server Component）が 4 セクションを並べる。各セクションは独立した Client Component（`components/admin/content/HeroSection` など）で、それぞれ自分の「保存」を持つ。
+- 入力は `useState` で持ち、保存は `useContentSave(key, schema)` フック（zod で確かめる → `PUT /bff/admin/content/{key}` → エラー or「保存しました」）。スキーマは `lib/schemas/adminContent.ts`。
+- 画像フィールド（`ContentImageUpload`）: プレビュー + Upload / Replace / Remove → `POST /bff/admin/content/{key}/images` → 返った URL を state に入れる（保存するまで data には入らない）。
+- Lookbook / About は配列。行の追加・削除・▲▼ の並べ替え（`lib/array.ts` の `moveItem`）。Lookbook の key は画像の url。
+- 「保存」成功で BFF が `revalidateTag('content')` → セクションの下に「保存しました。トップページに反映されています。」
 - 保存後にトップページを別タブで開くと即反映されていることを確認できる（ISR オンデマンド無効化のデモ）。
 
 ## テスト

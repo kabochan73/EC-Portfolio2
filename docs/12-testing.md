@@ -23,7 +23,8 @@ R2 は「テストを機能実装と並行して書く」と決めていたの�
 | 決済 | payment-intent 作成（本人・pending のみ）/ 非 pending は 409 / 金額ズレ 409 / キー未設定 503 / 既存 PaymentIntent の再利用 |
 | Webhook | `payment_intent.succeeded` で `paid` + 確認メール dispatch / 二重配信で1回だけ / 署名不正 400 / 未対応イベントは 200 / `payment_intent.canceled` で在庫復元 |
 | 注文ステータス | state machine の許可遷移 / 不正遷移 422 / `paid→cancelled` で返金 + 在庫復元 / `paid→shipped` で発送メール |
-| 管理 API | 非 admin 403 / 未認証 401 / 商品・カテゴリ・バリアント CRUD / カテゴリ削除 409 / ダッシュボード `revenue_total` |
+| 管理 API | 非 admin 403 / 未認証 401 / 全ルートに auth + admin（構造テスト）/ 商品・カテゴリ・バリアント CRUD / カテゴリ削除 409 / 運用ダッシュボード（未発送・受け取り待ち・在庫）/ 売上ダッシュボード（JST の区切り・`?month=`）/ バケットへの保存の失敗で画像の行を作らない |
+| Seeder | `DemoOrderSeeder`（状態を古さで分ける・流し直しても増えない・本物の注文と在庫に触らない） |
 | CMS | `GET /api/content` がデフォルト補完 / `PUT` の rules / 不正 key 404 / 非 admin 403 |
 
 ### Unit テスト（純粋ロジックだけ）
@@ -32,6 +33,8 @@ R2 は「テストを機能実装と並行して書く」と決めていたの�
 - `Domain\Order\OrderNumberGenerator::generate()`（日付内連番・日跨ぎ・UNIQUE 衝突リトライ）
 - `Enums\StockStatus::fromStock()`（0 / 3 / 4）
 - `Enums\OrderStatus::canTransitionTo()` / `transitions()`（全遷移マトリクス）
+- `Domain\Sales\SalesPeriod`（JST の月の区切り・31 日からの前月・年またぎ・指定した月）
+- `Services\StripeService`
 
 ## 構成
 
@@ -40,14 +43,11 @@ backend/tests/
 ├── Pest.php                 # uses(RefreshDatabase::class)->in('Feature')
 ├── TestCase.php
 ├── Feature/
-│   ├── Catalog/  Auth/  PasswordReset/  Address/
-│   ├── Order/    Payment/  Webhook/
-│   └── Admin/    Content/
+│   ├── Health/  Catalog/  Auth/  Account/
+│   ├── Order/   Payment/   Admin/  Content/  Seeders/
 ├── Unit/
-│   ├── ShippingFeeCalculatorTest.php
-│   ├── OrderNumberGeneratorTest.php
-│   ├── StockStatusTest.php
-│   └── OrderStatusTransitionTest.php
+│   ├── ShippingFeeCalculatorTest.php  OrderNumberGeneratorTest.php  StockStatusTest.php
+│   └── OrderStatusTransitionTest.php  SalesPeriodTest.php  StripeServiceTest.php
 └── Support/
     ├── StripeFixtures.php    # 疑似 Stripe イベント JSON を組み立てるヘルパ
     └── helpers.php
@@ -105,18 +105,25 @@ Mail::assertSent(ResetPasswordMail::class, fn ($m) => $m->hasTo($user->email));
 
 ## Factory 方針
 
-- 全モデルに Factory。Seeder は Factory を呼ぶ。
+- 全モデルに Factory（テスト専用）。Seeder は Factory を呼ばない（本番イメージは `composer install --no-dev` で Faker が入らないため、値を直接書く）。
 - 状態メソッド: `Product::factory()->unpublished()`、`ProductVariant::factory()->soldOut()` / `->lowStock()`、`Order::factory()->pending()` / `->paid()` / `->shipped()`、`User::factory()->admin()`。
 - `Order::factory()` は `order_items` を伴わない素の注文も作れる（一覧テスト用）。`->withItems(int $n)` で明細付き。
 - `OrderItemFactory` の `image_url` は空文字デフォルト（R2 で未着手だった調整をここで入れる。画像必須にしない）。
 
 ## フロントのテスト
 
-- 自動 E2E（Playwright 等）は R3 でも**入れない**（一人の学習プロジェクトで維持コストに見合わない）。
-- 代わりに毎 Step: `docker compose exec frontend npx tsc --noEmit` + `npm run lint` を通す。
-- 主要導線（トップ表示・商品詳細・カート→チェックアウト→決済→完了・ログイン・管理画面の CRUD・CMS 編集→反映）は CDP or 手動で1回ずつ確認し、`rebuild-log` に記録。
+- **Vitest + Testing Library**（R4 Step 50）。`frontend/tests/` に `lib/` と `components/` をミラー配置。`npm test`（76 tests）
+  - ロジック: 送料・カートの集計 / カートのストア（1 明細 10 個まで）/ ログイン後の戻り先 / キャッシュの無効化 / zod スキーマ / **日本時間の日付の境目**（`TZ=UTC` で動かす）/ 422 の割り当て / `moveItem`
+  - コンポーネント: VariantSelector / CartLine / OrderStatusActions / SalesChart / RankingMonthNav
+- 自動 E2E（Playwright 等）は**入れない**（一人の学習プロジェクトで維持コストに見合わない）。
+- 主要導線（トップ表示・商品詳細・カート→チェックアウト→決済→完了・ログイン・管理画面の CRUD・CMS 編集→反映）はヘッドレス Chrome（CDP）で確認し、`rebuild-log` に記録。
 - CDP のモバイル幅は `Emulation.setDeviceMetricsOverride` を使う（R2 の反省。`--window-size` は効かない）。
 
-## CI（任意・後回し可）
+## CI
 
-GitHub Actions で `docker compose` を立てて `php artisan test` + `tsc` + `lint`。Phase 11（デプロイ）と一緒に整える。R3 の必須ではない。
+GitHub Actions（`.github/workflows/ci.yml`）。main への push と PR で 2 ジョブを並列に:
+
+- backend: PostgreSQL 16 のサービスコンテナ + PHP 8.4 → Pint → Pest
+- frontend: Node 22（`.nvmrc`）→ `npm ci` → tsc → lint → Vitest
+
+`next build` は入れない（トップページなどをビルド時に Laravel から作るため。ビルドの確認は Railway のデプロイに任せる）。

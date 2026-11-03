@@ -11,12 +11,13 @@
 | データ | 経路 | 実装 |
 |---|---|---|
 | 読み取り（商品・カテゴリ・CMS） | Server Component → `lib/<domain>.ts` → `apiFetch`（サーバー専用、**ISR タグ付き**）→ Laravel | Cookie 不要 |
-| 書き込み・個人化（認証・注文・住所・プロフィール・決済） | Client Component → `fetch('/bff/...')` → Route Handler（`app/bff/**/route.ts`）→ `lib/<domain>.ts` が httpOnly Cookie のトークンを付けて Laravel | Route Handler は薄く |
+| 個人のデータの読み取り（マイページ・住所録・注文・決済ページ・管理画面） | Server Component → `requireAuth()` / `requireAdmin()` で Cookie のトークンを取り → `lib/<domain>.ts`（`no-store`）→ Laravel | BFF は通さない |
+| 書き込み（認証・注文・住所・プロフィール・管理画面の更新） | Client Component → `fetch('/bff/...')` → Route Handler（`app/bff/**/route.ts`）→ `lib/<domain>.ts` が httpOnly Cookie のトークンを付けて Laravel | Route Handler は薄く |
 
 ```
 ブラウザ
-  ├─ (Server Component)  ──→ apiFetch(tags) ─────────→ Laravel  （商品・カテゴリ・CMS）
-  └─ fetch('/bff/x')  ──→ app/bff/x/route.ts ──→ Laravel  （認証・注文・住所・決済）
+  ├─ (Server Component)  ──→ apiFetch(tags) ─────────→ Laravel  （商品・カテゴリ・CMS。個人のデータは tags なし + Bearer）
+  └─ fetch('/bff/x')  ──→ app/bff/x/route.ts ──→ Laravel  （ログイン・保存・削除などの書き込み）
                               └ Cookie の ecp_token を Bearer に載せ替える
                               └ 更新系は成功後に revalidateTag()
 ```
@@ -31,53 +32,51 @@ frontend/
 ├── app/
 │   ├── layout.tsx                # <html><body> のシェルだけ
 │   ├── globals.css               # Tailwind + デザイントークン（4色）
+│   ├── error.tsx  global-error.tsx  not-found.tsx   # §11
 │   ├── (shop)/                   # ストアフロント。Header/Footer 付き共通レイアウト
-│   │   ├── layout.tsx
-│   │   ├── not-found.tsx  loading.tsx  error.tsx
-│   │   ├── (catalog)/
-│   │   │   ├── page.tsx          #   /  トップ（CMS 駆動）
-│   │   │   └── products/[slug]/page.tsx
-│   │   ├── (cart)/
-│   │   │   ├── cart/page.tsx
-│   │   │   ├── checkout/page.tsx
-│   │   │   ├── checkout/payment/page.tsx         # ← R3
-│   │   │   └── checkout/complete/page.tsx
-│   │   ├── (auth)/
-│   │   │   ├── login/page.tsx  register/page.tsx
-│   │   │   ├── forgot-password/page.tsx          # ← R3
-│   │   │   └── reset-password/page.tsx           # ← R3
-│   │   └── (account)/
-│   │       └── account/…
-│   ├── admin/                    # 管理画面。独自レイアウト
-│   │   └── content/page.tsx      # ← R3 CMS 編集
-│   ├── media/[...key]/route.ts   # S3 プロキシ
-│   └── bff/
-│       ├── login  register  logout  me  me/password
-│       ├── forgot-password  reset-password                     # ← R3
-│       ├── addresses/…  orders  orders/[number]
-│       ├── cart/validate                                       # ← R3（明示ルート化）
-│       ├── checkout/payment-intent                             # ← R3
-│       └── admin/…                                             # 更新系は revalidateTag
+│   │   ├── layout.tsx  error.tsx  not-found.tsx
+│   │   ├── (catalog)/            # /  と  /products/[slug]
+│   │   ├── (cart)/               # /cart  /checkout  /checkout/payment（error.tsx あり）  /checkout/complete  + loading.tsx
+│   │   ├── (auth)/               # /login  /register  /forgot-password  /reset-password
+│   │   └── (account)/            # /account  /account/orders(/[number])  /account/addresses  /account/profile
+│   ├── admin/                    # 管理画面。独自レイアウト（サイドバー）+ error.tsx  not-found.tsx
+│   │   └── sales/  products/  categories/  orders/  customers/  content/
+│   ├── media/[...key]/route.ts   # バケットの画像の配信（products/ と content/ だけ）
+│   └── bff/                      # ブラウザ → Laravel の窓口（書き込み用。docs/03 の対応表）
+│       ├── login  register  logout  me  me/password  forgot-password  reset-password  health
+│       ├── addresses/…  orders  orders/[number]  cart/validate
+│       └── admin/…               # 更新系。成功したら revalidateTag
 ├── components/
 │   ├── layout/     Header Footer CartCount AccountLink
 │   ├── home/       Hero BrandConcept Lookbook CategoryGrid AboutSection
 │   ├── product/    ProductCard ProductMedia Gallery VariantSelector Accordion SizeChartTable
-│   ├── cart/       CartLine CartSummary
-│   ├── checkout/   AddressPicker AddressForm OrderReview PaymentForm(Stripe)   # ← R3
-│   ├── account/    OrderList AddressBook ProfileForm PasswordForm LogoutButton VerifyEmailBanner  # ← R3
-│   ├── auth/       LoginForm RegisterForm ForgotPasswordForm ResetPasswordForm  # ← R3
-│   ├── admin/      …  ContentEditor(Hero/Concept/Lookbook/About)  OrderFulfillment  # ← R3
-│   ├── ui/         Button Field Badge
-│   └── providers/  CartHydration QueryProvider StripeProvider   # ← R3
-└── lib/
-    ├── api.ts          # apiFetch（サーバー専用）／ApiError／apiErrorResponse
-    ├── types.ts        # Laravel Resource と 1:1 の型
-    ├── constants.ts    # SESSION_COOKIE_NAME, ISR タグ生成, 送料しきい値（表示用）
-    ├── revalidate.ts   # ← R3: タグ名の一元管理 + revalidate ヘルパ
-    ├── products.ts categories.ts content.ts auth.ts addresses.ts orders.ts checkout.ts  # ドメイン別
-    ├── schemas/        # zod スキーマ 1フォーム1ファイル
-    ├── stores/cart.ts  # zustand（persist、キー ecp-cart）
-    └── hooks/          # useCartValidation, useOrderStatusPolling(← R3)
+│   ├── cart/       CartView CartLine CartSummary
+│   ├── checkout/   CheckoutClient AddressPicker OrderReview StripeProvider PaymentForm CheckoutComplete
+│   ├── order/      OrderStatusBadge ShippingAddress AmountSummary      # マイページ・チェックアウト・管理画面で共用
+│   ├── account/    AccountMenu OrderList AddressBook AddressForm AddressFields ProfileForm PasswordForm LogoutButton
+│   ├── auth/       LoginForm RegisterForm ForgotPasswordForm ResetPasswordForm
+│   ├── admin/      AdminNav StatCard OrderTable Pagination OrderStatusActions CategoryManager CategoryForm
+│   │               ProductForm SizeChartEditor NewProductForm EditProductForm ProductImagesManager VariantsManager VariantForm
+│   │   ├── sales/    SalesKpiCards SalesChart SalesRanking RankingMonthNav
+│   │   └── content/  HeroSection ConceptSection LookbookSection AboutSection ContentImageUpload ContentSaveBar
+│   ├── ui/         Field
+│   └── providers/  CartHydration QueryProvider
+├── lib/
+│   ├── api.ts          # apiFetch（サーバー専用）／ApiError／apiErrorResponse／bearer
+│   ├── bff.ts          # withSession（Cookie のトークンが無ければ 401）／noContent
+│   ├── auth.ts         # Cookie の出し入れ、requireAuth / requireAdmin、認証系の Laravel 呼び出し
+│   ├── types/          # API のレスポンスの型（§7。index.ts で再エクスポート）
+│   ├── constants.ts    # SESSION_COOKIE_NAME, CART_STORAGE_KEY, 送料・在庫・数量のしきい値（表示用）
+│   ├── revalidate.ts   # ISR のタグ名の一元管理 + revalidate ヘルパ
+│   ├── format.ts       # formatYen / formatDate / formatDateTime（日本時間）
+│   ├── form-errors.ts  # Laravel の 422 をフォームの欄に割り当てる
+│   ├── cart-summary.ts login-redirect.ts array.ts      # 純粋な計算
+│   ├── products.ts categories.ts content.ts addresses.ts orders.ts cart.ts checkout.ts   # ドメイン別
+│   ├── admin/          # 管理画面の Laravel 呼び出し（サーバー専用）
+│   ├── schemas/        # zod スキーマ 1フォーム1ファイル
+│   ├── stores/cart.ts  # zustand（persist、キー ecp-cart）
+│   └── hooks/          # useCartValidation, useOrderStatusPolling, useContentSave
+└── tests/              # Vitest + Testing Library（lib/ と components/ をミラー）
 ```
 
 **規約**: `.tsx` は JSX を返す関数だけ。`apiFetch` を呼ぶだけの関数・型定義・zod スキーマは `lib/` に置く。
@@ -122,11 +121,13 @@ export const tags = {
 
 | 操作（BFF ルート） | 無効化するタグ |
 |---|---|
-| `PUT/POST/DELETE /bff/admin/products*`, `.../variants*`, `.../images*` | `products` ＋（slug が分かれば `product:{slug}`）|
+| `PUT/POST/DELETE /bff/admin/products*` | `products` ＋ `categories` ＋ `product:{slug}`（slug を変えたら変更前の slug も）|
+| `.../variants*`, `.../images*` | `products` ＋ `product:{slug}`（`revalidateProductCaches` が商品を取り直して slug を知る）|
+| `PUT /bff/admin/orders/{number}/status`（cancelled になったとき） | `products` ＋ 明細の商品の `product:{slug}`（在庫が戻って売り切れが解けるため）|
 | `PUT/POST/DELETE /bff/admin/categories*` | `categories` ＋ `products`（カード内のカテゴリ名表示のため）|
 | `PUT /bff/admin/content/*` | `content` |
 
-`lib/revalidate.ts` に `revalidate(tag: string)` ヘルパ（`revalidateTag` を try/catch でラップしログ）。商品更新時に slug が取れないケース（画像・バリアント操作）は `products` だけ無効化 + 個別 `product:{slug}` は `revalidate` 間隔（10分）に任せる、を許容する。
+`lib/revalidate.ts` に `revalidate(...tags)` ヘルパ（`revalidateTag` を 1 つずつ try/catch でラップしログ。途中で失敗しても残りを試す）。
 
 ### 3.4 書き込み・個人化（R2 と同じ方針）
 
@@ -220,9 +221,10 @@ CC にするのは次のどれかに当てはまるときだけ:
 
 ### StripeProvider
 
-`components/providers/StripeProvider.tsx`（Client）:
+`components/checkout/StripeProvider.tsx`（Client）:
 ```tsx
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+// publishableKey は /api/checkout/payment-intent のレスポンスで受け取る（NEXT_PUBLIC_* の環境変数は使わない）
+const stripePromise = loadStripe(publishableKey);
 // <Elements stripe={stripePromise} options={{ clientSecret, appearance }}> でラップ
 ```
 `appearance` はモノトーン（`theme: 'flat'` ベースにボーダーのみ、角丸なし、フォント継承）。
@@ -233,15 +235,14 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 2. 同じ Server Component が `POST /api/checkout/payment-intent`（`{ order_number }`）を呼び、`{ client_secret, publishable_key }` を受け取る（R4 で docs を実装に合わせて修正。R3 の docs は「Client がマウント時に作る」と書いていたが、実装はサーバー側で作っていた）。503（Stripe 未設定）・409（価格が変わった）は、この SC がパネルで表示する
 3. Client `PaymentForm`:
    - props で受け取った `clientSecret` / `publishableKey` で `<Elements options={{ clientSecret }}>` → `<PaymentElement />` + `SUBMIT` ボタン
-   - `stripe.confirmPayment({ elements, confirmParams: { return_url: `${SITE_URL}/checkout/complete?order=${number}` }, redirect: 'if_required' })`
-   - 成功（`redirect: 'if_required'` で即返る場合）→ `router.push('/checkout/complete?order=..')`
-   - 3DS などでリダイレクトが必要な場合は Stripe が `return_url` へ飛ばす
+   - `stripe.confirmPayment({ elements, confirmParams: { return_url: `${window.location.origin}/checkout/complete?order=${number}` } })`
+   - 成功・3DS とも、Stripe が `return_url` へ戻す（`redirect: 'if_required'` は使わない）
    - エラー（`error.type === 'card_error' | 'validation_error'`）→ フォーム下にメッセージ。注文は `pending` のまま
 4. `client_secret` は再訪時に同じ PaymentIntent のものが返る（`docs/09` の再利用）。
 
 ### `/checkout/complete`
 
-- `useOrderStatusPolling(number)` フック: `GET /bff/orders/{number}` を 1.5 秒間隔で最大 ~10 秒ポーリング、`status` が `paid` 以上になったら停止。
+- `useOrderStatusPolling(number)` フック: `GET /bff/orders/{number}` を 2.5 秒間隔で最大 60 秒ポーリング、`status` が `pending` でなくなったら停止。
 - `paid` → 注文番号・`VIEW ORDER`・`CONTINUE SHOPPING`、カートを空に。
 - タイムアウト → 「決済を受け付けました。反映まで少しかかることがあります」＋ `VIEW ORDER`、カートは空に（Webhook が最終的に確定させる）。
 - URL に Stripe の `redirect_status=failed` が付いていたら（SC の `searchParams` で読んで props で渡す。§3.6）「決済に失敗しました」＋ `/checkout/payment?order=..` へ戻すリンク。
@@ -254,8 +255,8 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 | 種類 | 置き場所 |
 |---|---|
-| **API のレスポンスの型** | `lib/types/` に領域ごと（`api.ts` / `catalog.ts` / `cms.ts` / 今後 `account.ts` / `order.ts` / `admin.ts`）。`lib/types/index.ts` で再エクスポートするので、使う側は `import type { ... } from "@/lib/types"` のまま |
-| **フォームの入力の型** | `lib/schemas/*.ts` で `z.infer<typeof schema>` から作るだけ。手書きの `XxxPayload` は作らない |
+| **API のレスポンスの型** | `lib/types/` に領域ごと（`api.ts` / `catalog.ts` / `cms.ts` / `cart.ts` / `account.ts` / `order.ts` / `admin.ts`）。`lib/types/index.ts` で再エクスポートするので、使う側は `import type { ... } from "@/lib/types"` のまま |
+| **フォームの入力の型** | `lib/schemas/*.ts` で `z.infer<typeof schema>` から作る。Laravel に送る形が少し違うとき（例: `AdminProductPayload` = フォームの値 + サイズ表）も、`z.infer` を元に同じファイルで作る |
 | **コンポーネントの props の型** | そのコンポーネントのファイルの中 |
 
 - API のレスポンスの型は `backend/app/Http/Resources/*` と 1:1。Resource を変えたらここも直す（コメントで対応ファイル名）。
@@ -269,7 +270,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 ## 8. バリデーション（`lib/schemas/`）
 
-- 1フォーム 1ファイル（`login` `register` `profile` `password` `address` `forgotPassword` `resetPassword` `adminProduct` `adminVariant` `adminCategory` `siteContent`）。
+- 1フォーム 1ファイル（`login` `register` `profile` `password` `address` `forgotPassword` `resetPassword` `adminProduct` `adminVariant` `adminCategory` `adminContent`）。新しいパスワード + 確認用の共通ルールは `new-password.ts`。
 - コンポーネント内に `z.object` を直書きしない。
 - クライアント zod は UX。最終防衛は Laravel の FormRequest。ルール（桁・`123-4567` 形式）はバックエンドと揃える。
 - 決済フォームには zod スキーマを持たない（カード情報は Stripe Element が握り、こちらは触れない）。
@@ -293,13 +294,13 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 - `components/product/ProductMedia.tsx`: `images[0]` があれば `next/image`、無ければ `bg-mist` に `NO IMAGE`（`text-graphite`・全大文字・字間広め）。
 - 一覧カードのホバー差し替えは `images[1]` がある時だけ。
 - 画像配信は `/media/[...key]/route.ts`（`@aws-sdk/client-s3` の `GetObjectCommand`、ローカルの RustFS は `forcePathStyle: true`）。`next/image` の loader はデフォルト（同一オリジン `/media/...`）。
-- R3 の商品シードは画像付き（ユーザー提供）。CMS も画像を持つ。
+- 商品の seed は画像なし（本番の画像は管理画面からアップロードする）。CMS も画像を持てる。
 
 ---
 
 ## 11. エラー・ローディング・空状態
 
-- ルートセグメントごとに `loading.tsx`（スケルトン）/ `error.tsx`（リトライ）/ `not-found.tsx`。商品詳細の 404 は `notFound()`。
+- `error.tsx`（リトライ）/ `not-found.tsx` は `app/`・`(shop)/`・`admin/` に置く。`loading.tsx`（スケルトン）は `(cart)/` だけ（`notFound()` を呼ぶ区画に置くと 404 が 200 になるため）。商品詳細などの 404 は `notFound()`。
 - 空状態の文言は `docs/01` 準拠。
 - 決済ページの `error.tsx` は「決済を開始できませんでした。カートに戻る」。
 - `error.tsx` は同じフォルダの **layout** のエラーは受けられない（1 つ上の error.tsx の担当）。`admin/layout.tsx` の `requireAdmin()` が Laravel につながらないときに備えて `app/error.tsx` を置く。`app/global-error.tsx` はルートレイアウト自体が落ちたときだけ（R4。2026-10-16 Step 49）
@@ -310,16 +311,17 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 | 変数 | スコープ | 用途 |
 |---|---|---|
-| `API_URL` | サーバー専用 | `apiFetch` の向き先。ローカル `http://backend:8080` |
-| `NEXT_PUBLIC_SITE_URL` | クライアント可 | 絶対 URL・Stripe `return_url` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | クライアント可 | Payment Element 初期化 |
-| `BUCKET_*`（ENDPOINT / ACCESS_KEY_ID / SECRET_ACCESS_KEY / NAME / REGION） | サーバー専用 | `/media` プロキシ |
+| `API_URL` | サーバー専用 | `apiFetch` の向き先。ローカル `http://backend:8080`、本番は backend の公開 URL |
+| `BFF_SHARED_SECRET` | サーバー専用 | 本当のクライアント IP を backend に渡すときの合言葉 |
+| `BUCKET_*`（ENDPOINT / ACCESS_KEY_ID / SECRET_ACCESS_KEY / NAME / REGION / FORCE_PATH_STYLE） | サーバー専用 | `/media` プロキシ |
+
+`NEXT_PUBLIC_*` は使っていない（Stripe の publishable key は API が返す、`return_url` は `window.location.origin` から作る）。
 
 `NEXT_PUBLIC_` の付かない変数はブラウザに渡らない。`lib/api.ts` `lib/auth.ts` など「サーバー専用」ファイルをクライアントから import しない。
 
 ---
 
-## 13. 実装の順序（フロント Step。`docs/rebuild-log` に対応）
+## 13. 実装の順序（R3 時代の計画。実際に作った順序と中身は `docs/rebuild-log.md` の Step 31〜49）
 
 1. **共通レイアウト**: `app/layout.tsx` 掃除 + `globals.css` トークン + `(shop)/layout.tsx` + `lib/{api,types,constants,revalidate}.ts`
 2. **トップページ（CMS 駆動 + ISR）**: `(catalog)/page.tsx` — Hero / Concept / Lookbook / CategoryGrid / About + `ProductCard` + `ProductMedia` + `lib/{products,categories,content}.ts`

@@ -18,7 +18,7 @@
 
 ## パスワードリセットの送信経路
 
-`Password::sendResetLink()`（標準 broker）→ `$user->sendPasswordResetNotification($token)` を `User` モデルで override し、標準の `Notification` は使わず自前 Job を dispatch する（4 通の見た目を Mailable + Markdown ビューで揃えたいため）:
+`Password::sendResetLink()`（標準 broker）→ `$user->sendPasswordResetNotification($token)` を `User` モデルで override し、標準の `Notification` は使わず自前 Job を dispatch する（3 通の見た目を Mailable + Markdown ビューで揃えたいため）:
 
 ```php
 // User.php

@@ -23,7 +23,7 @@
 | Controller | `app/Http/Controllers/Api/{Shop,Auth,Account,Order,Webhook,Admin}/` | 入力を受け取り Action を呼び Resource を返す |
 | FormRequest | `app/Http/Requests` | 形式的バリデーション + 認可 |
 | Action | `app/Actions` | ビジネスロジック1ユースケース。トランザクション境界 |
-| Domain クラス | `app/Domain` | Eloquent 非依存の純粋ロジック（送料計算・採番） |
+| Domain クラス | `app/Domain` | Eloquent 非依存の純粋ロジック（送料計算・採番・売上の期間計算） |
 | Model | `app/Models` | リレーション・スコープ・キャスト |
 | Enum | `app/Enums` | 状態・区分の定義と振る舞い（**state machine もここ**） |
 | API Resource | `app/Http/Resources/{Shop,Order,Account,Admin}/` | レスポンス JSON 整形。公開用と管理用は Admin/ で分ける |
@@ -59,9 +59,10 @@ Request → Route → Controller
 
 | ドメイン | Action |
 |---|---|
-| Order | `CreateOrder`（`pending` 作成・在庫引き当て）/ `RestockOrder`（キャンセル時の在庫戻し。Domain 寄りだが DB 更新を伴うので Action）|
-| Payment | `CreatePaymentIntent`（注文から PaymentIntent 作成 or 再利用）/ `MarkOrderPaid`（Webhook succeeded の本体）/ `HandlePaymentFailed` / `CancelOrderPayment`（Webhook canceled）|
-| Admin/Order | `TransitionOrderStatus`（state machine の唯一の入口。paid→shipped / shipped→completed / *→cancelled）|
+| Order | `CreateOrder`（`pending` 作成・在庫引き当て）/ `RestockOrder`（キャンセル時の在庫戻し。Domain 寄りだが DB 更新を伴うので Action）/ `CancelSupersededOrders`（新しい注文を作ったら、同じユーザーの古い pending を取り消す）|
+| Payment | `CreatePaymentIntent`（注文から PaymentIntent 作成 or 再利用）/ `MarkOrderPaid`（Webhook succeeded の本体）/ `HandlePaymentFailed` / `CancelOrderPayment`（Webhook canceled）/ `RecordRefund`（Webhook charge.refunded）|
+| Admin/Order | `TransitionOrderStatus`（state machine の唯一の入口。paid→shipped / shipped→completed / *→cancelled。期限切れ・置き換えのキャンセルも `cancelIfPending()` で通る）|
+| Admin（R4） | `GetSalesDashboard`（売上ダッシュボードの集計。期間は `Domain/Sales/SalesPeriod`）|
 | Auth | `RegisterUser` / `AuthenticateUser` / `UpdateProfile` / `UpdatePassword` |
 | Address | `CreateAddress` / `UpdateAddress` / `DeleteAddress` / `SetDefaultAddress` |
 | Admin/Product | `CreateProduct` / `UpdateProduct` / `DeleteProduct` |
@@ -197,7 +198,7 @@ enum OrderStatus: string
 ```
 
 - 遷移の**副作用**（在庫戻し・返金・メール）は Enum ではなく `TransitionOrderStatus` Action が持つ（Enum は「遷移が許されるか」の判定のみ）
-- `TransitionOrderStatus::execute(Order $order, OrderStatus $to, User $actor)`:
+- `TransitionOrderStatus::execute(Order $order, OrderStatus $to)`:
   1. `$order->status->canTransitionTo($to)` でなければ `throw new InvalidOrderTransitionException`
   2. `DB::transaction` で `lockForUpdate`
   3. `$to` に応じた副作用: `Cancelled` かつ `from` が pending/paid → `RestockOrder`。`from === Paid && $to === Cancelled` → `StripeService::refund`。`$to === Shipped` → `shipped_at` + `SendOrderShippedJob`
@@ -208,7 +209,7 @@ enum OrderStatus: string
 ## 5. キュー（R3 追加。R2 の「入れない」を見直し）
 
 - `QUEUE_CONNECTION=database`（`jobs` テーブル）。Redis は入れない（規模的に不要、Railway サービスを1つ増やすだけで済む）
-- **キューに載せるもの**: メール送信のみ（4 種）。Webhook の本体処理は同期（Stripe が 200 を待つ間に完了させたい／メールだけ後回し）
+- **キューに載せるもの**: メール送信のみ（3 種: 注文確認・発送通知・パスワードリセット）。Webhook の本体処理は同期（Stripe が 200 を待つ間に完了させたい／メールだけ後回し）
 - Job は薄く: `SendOrderConfirmationJob($orderId)` → `handle()` で `Order::with(...)->find($id)` して `Mail::to(...)->send(new OrderConfirmationMail($order))`。ID を渡してモデルは handle 内で引く（シリアライズ肥大を避ける。`SerializesModels` でも可だが ID 明示のほうが意図が明確）
 - `--tries=3`、失敗は `failed_jobs`。`failed()` フックでログ（メールなので握りつぶしてよい。注文自体は成立している）
 - ローカル: compose の `queue` サービスが `php artisan queue:work`。テスト: `Queue::fake()` / `Mail::fake()`
@@ -241,6 +242,7 @@ return [
     'shipping_fee' => 800,
     'free_shipping_threshold' => 20000,
     'cart_max_quantity_per_line' => 10,
+    'pending_order_ttl_minutes' => 30,
     'order_number_prefix' => 'EC',
     'currency' => 'jpy',
 ];
@@ -254,13 +256,15 @@ Stripe / Resend のキーは `config/services.php`。
 ```
 app/
 ├── Actions/
-│   ├── Order/            CreateOrder(+Input) RestockOrder
+│   ├── Order/            CreateOrder(+Input) RestockOrder CancelSupersededOrders
 │   ├── Payment/          CreatePaymentIntent MarkOrderPaid HandlePaymentFailed CancelOrderPayment RecordRefund
-│   ├── Admin/            Order/TransitionOrderStatus  Content/UpdateSiteContent  Product/... Category/... Variant/... ProductImage/...
+│   ├── Admin/            GetSalesDashboard  Order/TransitionOrderStatus  Content/UpdateSiteContent  Product/... Category/... Variant/... ProductImage/...
 │   ├── Auth/             RegisterUser AuthenticateUser UpdateProfile UpdatePassword
 │   └── Address/          CreateAddress UpdateAddress DeleteAddress SetDefaultAddress
+├── Console/Commands/     ExpirePendingOrders（orders:expire-pending。scheduler が 5 分ごと）
 ├── Domain/
-│   └── Order/            ShippingFeeCalculator  OrderNumberGenerator
+│   ├── Order/            ShippingFeeCalculator  OrderNumberGenerator
+│   └── Sales/            SalesPeriod（日本時間の今日・今月・先月・過去 12 か月・指定した月）
 ├── Enums/                OrderStatus  StockStatus  UserRole
 ├── Jobs/                 SendPasswordResetJob(通常は broker 任せ)  SendOrderConfirmationJob  SendOrderShippedJob
 ├── Mail/                 ResetPasswordMail  OrderConfirmationMail  OrderShippedMail
@@ -271,7 +275,7 @@ app/
 │   └── Resources/         Shop/  Order/(OrderResource OrderListResource OrderItemResource)  Account/  Admin/
 ├── Exceptions/           InsufficientStockException  UnpublishedProductException  CategoryInUseException
 │                         InvalidOrderTransitionException  PaymentAmountMismatchException
-│                         OrderNotPendingException
+│                         OrderNotPendingException  PaymentInProgressException
 ├── Models/               ... Payment  StripeEvent  SiteContent
 └── Services/             StorageService  StripeService
 ```
@@ -307,7 +311,7 @@ app/
 
 ## 12. テスト戦略（`docs/12-testing.md` に詳細）
 
-- **Pest 3**（R2 は phpunit のまま未記述だった）。Feature 中心、Unit は純粋ロジック（`ShippingFeeCalculator` / `StockStatus::fromStock` / `OrderStatus::canTransitionTo` / `OrderNumberGenerator`）
+- **Pest 3**（R2 は phpunit のまま未記述だった）。Feature 中心、Unit は純粋ロジック（`ShippingFeeCalculator` / `StockStatus::fromStock` / `OrderStatus::canTransitionTo` / `OrderNumberGenerator` / `SalesPeriod`）
 - **機能実装と並行して書く**（R2 の最大の反省）。Step ごとに対応するテストを足してからコミット
 - 決済は `StripeService` をモック。Webhook は署名済みペイロードを組み立てて `postJson`
 - `Mail::fake()` / `Queue::fake()` で dispatch を検証
