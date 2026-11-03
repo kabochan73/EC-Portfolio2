@@ -8,9 +8,20 @@ import ProductCard from "@/components/product/ProductCard";
 import SizeChartTable from "@/components/product/SizeChartTable";
 import VariantSelector from "@/components/product/VariantSelector";
 import { formatYen } from "@/lib/format";
-import { getProduct } from "@/lib/products";
+import { getProduct, getProducts } from "@/lib/products";
 
 type PageProps = { params: Promise<{ slug: string }> };
+
+/**
+ * ビルド時に、公開中の全商品のページを作っておく（ISR。2026-11-03 追加）。
+ * - これが無いと、ページはリクエストのたびに描いていた（データは fetch のタグでキャッシュ済み）
+ * - ビルド後に追加・公開した商品は、最初のアクセスでページを作り、以後はキャッシュする（dynamicParams の既定 = true）
+ * - 管理画面で更新すると、BFF が revalidateTag(product:{slug} / products) でページごと作り直す
+ */
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  const products = await getProducts();
+  return products.map((product) => ({ slug: product.slug }));
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;

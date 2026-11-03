@@ -538,3 +538,9 @@ R3 の Step 18〜23 + R3 末期の穴埋め（未決済注文の自動キャン�
 - 原因: alt を空で保存すると、Laravel の `ConvertEmptyStringsToNull` が `""` を `null` にして保存する。次に編集すると、zod の `alt: z.string()` が null を弾いていた（backend の検証は `nullable` で、null を許している）。本番の 8 枚すべてが `alt: null` だった。ローカルの確認は毎回まっさらな状態から 1 回しか保存していなかったので気づかなかった
 - 修正（frontend）: `lookbookSchema` の alt を `.nullable()`、`SiteContent` の型を `alt: string | null`、入力欄は `image.alt ?? ""`。トップの表示はもともと `alt || ""` で対応済み。Vitest 2 件（alt が null / 空文字 / 文字列で通る、url が空なら落ちる。合計 76）
 - 確認（ローカル）: alt を空で保存 → API が `[null, null]` を返す → 管理画面を開き直して Save Lookbook → 「保存しました」。元のデータに戻した
+
+**改善 — 2026-11-03 商品詳細ページも ISR に（ユーザーの案）**（1 コミット）
+- それまで: `/products/[slug]` はビルドの印が ƒ（リクエストのたびに描画）。データは `fetch` のタグ（`product:{slug}` / `products`）でキャッシュしていたので Laravel には毎回行かないが、HTML は毎回作っていた。`generateStaticParams` が無かったため
+- 変更: `generateStaticParams` で公開中の全商品の slug を返す → ビルドの印が ●（SSG）+ Revalidate 10m、16 商品のページをビルド時に作る。ビルド後に追加・公開した商品は最初のアクセスで作って以後キャッシュ（`dynamicParams` の既定 = true）。管理画面の更新は今までどおり BFF の `revalidateTag` でページごと作り直す
+- 商品一覧はトップページの中（専用ページは作らない方針）で、トップは元から ISR。管理画面の商品一覧はログインが要るので ISR にはできない
+- 確認（本番用イメージをローカルでビルド・起動）: 商品ページは 2 回とも `x-nextjs-cache: HIT`、存在しない slug は 404、BFF で商品名を変える → 次のアクセスで新しい名前・戻すと元に戻る
