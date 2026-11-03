@@ -79,7 +79,7 @@ R2 から不変。
   - カテゴリ（小・グレー・全大文字）
   - 商品名 / 価格
   - 配送目安の囲み（`SHIPPING: 3–5 BUSINESS DAYS`、静的）
-  - 色スウォッチ（複数色ある商品のみ。選択で画像・在庫を切替）
+  - 色スウォッチ（複数色ある商品のみ。選択でその色のサイズと在庫を切替。画像は商品単位なので切り替えない）
   - サイズセレクタ（`stock=0` はグレーアウト・選択不可、`1〜5` はサイズ横に `LOW STOCK`）
   - `ADD TO CART`（サイズ未選択時は非活性）
   - アコーディオン: `DESCRIPTION` / `MATERIAL & CARE` / `SIZE GUIDE`（`size_chart` を表、null は非表示）/ `SHIPPING & RETURNS`（静的）
@@ -92,7 +92,7 @@ ISR: `getProduct(slug)` にタグ `product:{slug}` と `products`。
 
 R2 から不変。
 - 明細行: サムネ / 商品名・サイズ（・色）/ 単価 / 数量ステッパー / 小計 / 削除
-- 数量上限は当該 variant の `stock`
+- 数量上限は `min(stock, 10)`（`/api/cart/validate` の `max_quantity`。1 明細 10 個まで = `config('shop.cart_max_quantity_per_line')`）
 - サマリー: `SUBTOTAL` / `SHIPPING` / `TOTAL` / `CHECKOUT` ボタン
 - 空カート: `YOUR CART IS EMPTY` ＋ `CONTINUE SHOPPING`
 - カートは Zustand + localStorage（キー `ecp-cart`）。ヘッダーの `CART (n)` と同期
@@ -107,14 +107,14 @@ R2 から不変。
 ### `/checkout/payment` 決済
 
 1. 対象注文（`pending` かつ本人）を取得。`pending` でなければ状態に応じて `/checkout/complete` か `/account/orders/[number]` へ
-2. `POST /bff/checkout/payment-intent` で `client_secret` を取得（サーバーが金額を再計算）
+2. 同じ Server Component が Laravel の `POST /api/checkout/payment-intent` を呼び、`client_secret` と `publishable_key` を受け取る（サーバーが金額を再計算。BFF は通さない）
 3. Stripe Payment Element を描画。テストカード `4242 4242 4242 4242`
-4. `stripe.confirmPayment({ redirect: 'if_required' })` 成功 → `/checkout/complete?order=<number>` へ
+4. `stripe.confirmPayment({ confirmParams: { return_url } })` → Stripe が `/checkout/complete?order=<number>` へ戻す
 5. カード拒否・3DS 失敗はフォーム内にエラー表示（注文は `pending` のまま、再試行可能）
 
 ### `/checkout/complete` 注文完了
 
-- `POST /bff/orders/<number>` をポーリング（最大 ~10 秒、1.5 秒間隔）して `paid` になるのを待つ（Webhook 反映のラグ対策）
+- `GET /bff/orders/<number>` をポーリング（2.5 秒間隔・最大 60 秒）して `paid` になるのを待つ（Webhook 反映のラグ対策）
 - `paid` 確認: `注文番号` 表示 / `VIEW ORDER`（注文詳細へ）/ `CONTINUE SHOPPING` / カートを空にする
 - タイムアウト時: 「決済処理中です。数分後に注文履歴でご確認ください」＋ `VIEW ORDER`（カートは空にしてよい。Webhook が最終的に反映する）
 

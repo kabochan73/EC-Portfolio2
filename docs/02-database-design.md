@@ -1,4 +1,4 @@
-# データベース設計（PostgreSQL 16）（R4）
+# データベース設計（PostgreSQL。ローカル 16 / 本番は Railway の 18）（R4）
 
 ## ER 概要
 
@@ -21,24 +21,23 @@ Laravel 標準テーブル（`users`, `password_reset_tokens`, `sessions`, `cach
 
 ## マイグレーションのファイル名順（R2 の反省）
 
-Laravel はマイグレーションをファイル名の辞書順で流す。`create_product_images_table`（`_i`）は `create_products_table`（`_s`）より前にソートされ、FK 作成で落ちる。**タイムスタンプを手で調整**して依存順（親テーブル → 子テーブル）を保証する。R3 の順序:
+Laravel はマイグレーションをファイル名の辞書順で流す。`create_product_images_table`（`_i`）は `create_products_table`（`_s`）より前にソートされ、FK 作成で落ちる。**タイムスタンプを手で調整**して依存順（親テーブル → 子テーブル）を保証する。R4 の順序（`role` は `create_users_table` に最初から入れた）:
 
 ```
-0001_01_01_000000  create_users_table            (標準)
-0001_01_01_000001  create_cache_table            (標準)
-0001_01_01_000002  create_jobs_table             (標準。failed_jobs 含む)
-...._000003  create_personal_access_tokens_table  (install:api)
-...._000100  add_role_to_users_table
-...._000110  create_categories_table
-...._000120  create_products_table
-...._000130  create_product_images_table
-...._000140  create_product_variants_table
-...._000150  create_addresses_table
-...._000160  create_orders_table
-...._000170  create_order_items_table
-...._000180  create_payments_table
-...._000190  create_stripe_events_table
-...._000200  create_site_contents_table
+0001_01_01_000000        create_users_table            (標準 + role)
+0001_01_01_000001        create_cache_table            (標準)
+0001_01_01_000002        create_jobs_table             (標準。failed_jobs 含む)
+2026_10_15_081433        create_personal_access_tokens_table  (install:api)
+2026_10_15_100010        create_categories_table
+2026_10_15_100020        create_products_table
+2026_10_15_100030        create_product_images_table
+2026_10_15_100040        create_product_variants_table
+2026_10_15_100050        create_addresses_table
+2026_10_15_100060        create_orders_table
+2026_10_15_100070        create_order_items_table
+2026_10_15_100080        create_payments_table
+2026_10_15_100090        create_stripe_events_table
+2026_10_15_100100        create_site_contents_table
 ```
 
 ---
@@ -122,7 +121,7 @@ Bottoms の columns 例: `["ウエスト", "股上", "股下", "わたり幅", "
 | created_at / updated_at | timestamp | |
 
 一意制約: NULL 複合 UNIQUE の罠（R2 の反省）を避けるため **2 本立て**:
-- `UNIQUE(product_id, size, color)`（通常 UNIQUE。color NOT NULL の行に効く）
+- 部分 UNIQUE インデックス `UNIQUE(product_id, size, color) WHERE color IS NOT NULL`
 - 部分 UNIQUE インデックス `UNIQUE(product_id, size) WHERE color IS NULL`
 
 ### 在庫ステータス（API 算出、閾値は config）
@@ -149,7 +148,7 @@ Bottoms の columns 例: `["ウエスト", "股上", "股下", "わたり幅", "
 | remember_token | varchar(100) | |
 | created_at / updated_at | timestamp | |
 
-`email_verified_at` は無い（メール認証は実装しない。2026-09-14 撤去。`docs/rebuild-log.md`）。シーダーで管理者1人（`role = 'admin'`）。ダミー顧客は手動投入。
+`email_verified_at` は無い（メール認証は実装しない。2026-09-14 撤去。`docs/rebuild-log.md`）。シーダーで管理者1人（`role = 'admin'`。値は `ADMIN_*`）。売上ダッシュボード用のデモ会員 10 人と注文は `DemoOrderSeeder`（`DatabaseSeeder` からは呼ばず個別に流す。`docs/05`）。
 
 ---
 
@@ -212,7 +211,7 @@ R2 から不変。
             │ pending │ ─────────────────────────────────────▶ │ paid │
             └────────┘                                         └──────┘
                 │                                                  │ admin: 発送
-                │ 決済失敗 / 放棄(TTL) / admin キャンセル              ▼
+                │ 放棄(TTL) / 置き換え / admin キャンセル              ▼
                 │                                              ┌─────────┐
                 │                                              │ shipped │
                 ▼                                              └─────────┘
@@ -228,7 +227,7 @@ R2 から不変。
 | from → to | 実行者 | 副作用 |
 |---|---|---|
 | `pending → paid` | Stripe Webhook | `paid_at` セット、注文確認メール dispatch |
-| `pending → cancelled` | Webhook（失敗/期限切れ）/ admin | `cancelled_at` セット、在庫復元 |
+| `pending → cancelled` | 期限切れ（scheduler の `orders:expire-pending`）/ 新しい注文での置き換え（`CancelSupersededOrders`）/ Webhook `payment_intent.canceled` / admin | `cancelled_at` セット、在庫復元、PaymentIntent を Stripe で取り消し。決済失敗（`payment_failed`）では cancelled にしない（pending のまま再試行できる） |
 | `paid → shipped` | admin | `shipped_at` セット、発送通知メール dispatch |
 | `paid → cancelled` | admin | `cancelled_at` セット、在庫復元、**Stripe 返金**（`docs/09`） |
 | `shipped → completed` | admin | — |
@@ -339,5 +338,5 @@ R2 とほぼ同じ。決済は**この後**の別ステップ。
 2. metadata の `order_id` で注文を取得。行ロック
 3. `status !== 'pending'` なら no-op（冪等）
 4. `payments.status = succeeded` / `orders.status = paid` / `orders.paid_at = now()` を更新
-5. `SendOrderConfirmation` ジョブを dispatch
+5. `SendOrderConfirmationJob` を dispatch
 6. `stripe_events.processed_at` を更新、コミット、200

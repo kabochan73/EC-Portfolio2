@@ -23,6 +23,7 @@
 | `/admin/orders` | 注文一覧（ステータスフィルタ・ページング） |
 | `/admin/orders/[number]` | 注文詳細・ステータス変更（フルフィルメント） |
 | `/admin/customers` | 会員一覧（閲覧のみ、注文数・登録日、名前/メール検索） |
+| `/admin/customers/[id]` | 会員詳細（閲覧のみ。会員の情報と注文履歴） |
 | `/admin/content` | **CMS（R3 追加）**。トップの Hero / Concept / Lookbook / About を編集 |
 
 管理画面はモノトーンだが装飾を排し、機能優先のテーブル/フォームレイアウト。ストアフロントの Header/Footer は持たず、専用サイドバー（Dashboard / Sales / Products / Categories / Orders / Customers / Content / My Account）。
@@ -150,7 +151,7 @@ R3 は「売上を表示しない」方針だったが、2026-10-15 に撤回。
 ### 注文
 | メソッド | パス | 備考 |
 |---|---|---|
-| GET | `/api/admin/orders` | 全ユーザー。`?status=&page=` |
+| GET | `/api/admin/orders` | 全ユーザー。`?status=&customer_id=&page=`（`customer_id` は会員詳細の注文履歴用） |
 | GET | `/api/admin/orders/{order_number}` | 明細・配送先・顧客・決済情報 |
 | PUT | `/api/admin/orders/{order_number}/status` | `{ status }`。state machine（`docs/02`）。不正遷移 422。`paid → cancelled` は返金 |
 
@@ -158,6 +159,7 @@ R3 は「売上を表示しない」方針だったが、2026-10-15 に撤回。
 | メソッド | パス | 備考 |
 |---|---|---|
 | GET | `/api/admin/customers` | `role='customer'`。注文数・登録日。`?q=`（name/email 部分一致）・`?page=` |
+| GET | `/api/admin/customers/{id}` | 会員 1 人。管理者の id・存在しない id は 404 |
 
 ### CMS（R3 追加）
 | メソッド | パス | 備考 |

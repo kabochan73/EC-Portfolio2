@@ -118,11 +118,11 @@ stripe listen --forward-to localhost:8000/api/stripe/webhook
 ## テスト
 
 ```bash
-# バックエンド（Pest, 241 tests）
+# バックエンド（Pest, 244 tests）
 docker compose exec backend php artisan test
 docker compose exec backend vendor/bin/pint --test   # コードスタイル
 
-# フロントエンド（Vitest, 74 tests）
+# フロントエンド（Vitest, 76 tests）
 docker compose exec frontend npm test
 docker compose exec frontend npm run lint
 docker compose exec frontend npx tsc --noEmit

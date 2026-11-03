@@ -12,7 +12,7 @@ R3 と同じスコープ・同じ技術スタックを、**自分の手で 1 か
 
 | R4 で新たに入れるもの | 概要 |
 |---|---|
-| 売上ダッシュボード | 管理画面 `/admin` に売上 KPI・棒グラフ（日別/月別）・カテゴリ別の商品ランキングを表示。詳細は `docs/05-admin.md` |
+| 売上ダッシュボード | 管理画面 `/admin/sales` に売上 KPI・棒グラフ（日別/月別）・カテゴリ別の商品ランキング（月を選べる）を表示。詳細は `docs/05-admin.md` |
 
 以下の「R3 のゴール」以降は R3 から引き継いだ設計（R4 でもそのまま適用）。
 
@@ -63,7 +63,7 @@ R2 から引き継ぐ非スコープ + R3 で新たに線を引くもの。
 | フロントエンド | Next.js 15 (App Router) + TypeScript + Tailwind CSS v4 |
 | 状態管理（カート） | Zustand + localStorage 永続化（キー `ecp-cart`） |
 | フォーム / 検証 | react-hook-form + @hookform/resolvers + zod |
-| クライアントデータ取得 | TanStack Query（ログイン状態表示・住所録・カート再検証・決済ステータス確認のみ。`/admin` は Server Component で取得し使わない） |
+| クライアントデータ取得 | TanStack Query（ログイン状態表示・カート再検証・決済ステータス確認の 3 か所だけ。住所録・`/admin` は Server Component で取得し、操作後は `router.refresh()`） |
 | 決済 UI | @stripe/stripe-js + @stripe/react-stripe-js（Payment Element） |
 | 画像プロキシ | @aws-sdk/client-s3（Next.js `/media/[...key]` がバケットから GetObject） |
 | アイコン | lucide-react |
@@ -74,8 +74,8 @@ R2 から引き継ぐ非スコープ + R3 で新たに線を引くもの。
 | DB | PostgreSQL 16 |
 | 画像ストレージ | Railway Storage Bucket（private・S3互換）。Next.js の `/media` プロキシ経由で配信。ローカルは RustFS |
 | backend アプリサーバー | nginx + php-fpm（`serversideup/php:8.4-fpm-nginx` をローカル・本番で共用） |
-| テスト | Pest 3（backend）。フロントは tsc + eslint + 主要導線の手動/CDP 確認 |
-| ローカル実行形態 | すべて Docker。`docker compose up -d` で frontend / backend / queue / db / rustfs / mailpit が起動 |
+| テスト | Pest 3（backend）/ Vitest + Testing Library（frontend）。GitHub Actions の CI で両方を実行。主要導線はヘッドレス Chrome（CDP）でも確認 |
+| ローカル実行形態 | すべて Docker。`docker compose up -d` で frontend / backend / queue / scheduler / db / rustfs / mailpit が起動 |
 | 本番実行形態 | Railway（Docker デプロイ） |
 
 原則ライブラリを増やさない方針は R2 から継続。R3 で追加するのは上表の Stripe 2 種・stripe-php・メールトランスポート・Pest のみ。理由は `rebuild-log.md` に残す。
@@ -83,7 +83,7 @@ R2 から引き継ぐ非スコープ + R3 で新たに線を引くもの。
 ## アーキテクチャ方針
 
 - **BFF パターン**: ブラウザは Next.js とだけ通信。Next.js のサーバー側（Route Handler / Server Component）が Laravel API を呼ぶ。
-- Laravel は原則公開せず Railway の内部ネットワークのみに配置。**例外は Stripe Webhook の1エンドポイントのみ**（`POST /api/stripe/webhook`）。Stripe から直接叩かれる必要があり、BFF を挟めない。署名検証で保護する（`docs/09-payments-stripe.md`）。
+- Laravel にも公開ドメインを付ける。理由は 2 つ: Stripe Webhook（`POST /api/stripe/webhook`）を Stripe から直接受けるため（署名検証で保護。`docs/09-payments-stripe.md`）と、frontend の `next build` がトップページなどを作るときに Laravel を呼ぶため（Railway の内部 DNS はビルド時に引けないので、`API_URL` は backend の公開 URL。`docs/04`）。ブラウザ向けの窓口は Next.js だけで、Laravel の API はトークンが無ければ 401。
 - 認証トークンは Next.js が httpOnly Cookie（`ecp_token`）で保持し、サーバー側で `Authorization: Bearer` を付与。
 - カタログ読み取りは ISR（タグ付きキャッシュ）＋ 管理更新時のオンデマンド無効化。個人化データ（注文・住所・カート）は常に動的。
 

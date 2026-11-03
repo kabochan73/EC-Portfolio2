@@ -64,7 +64,7 @@
 未設定キーはデフォルト値を埋めて返す（フロントが必ず全キー受け取れる）。
 
 ### GET /api/cart/validate （カート再検証）
-body ではなくクエリ or POST。`variant_id` の配列を渡し、各 variant の現在価格・在庫ステータス・公開状態・商品名/画像を返す。`/cart` `/checkout` 表示時に使用。
+クエリ `?variant_ids[]=55&variant_ids[]=56`（1〜100 件）。各 variant の現在価格・在庫ステータス・公開状態・商品名/画像を、渡した順に返す。`/cart` `/checkout` 表示時に使用（ブラウザからは BFF の `GET /bff/cart/validate?ids=55,56` 経由）。
 ```json
 { "data": [
   { "variant_id": 55, "available": true, "price": 12000, "stock_status": "low_stock",
@@ -78,7 +78,7 @@ body ではなくクエリ or POST。`variant_id` の配列を渡し、各 varia
 
 ## 認証エンドポイント
 
-### POST /api/register
+### POST /api/register  （`throttle:register` = IP で 5回/分）
 body: `name`, `email`, `password`, `password_confirmation`
 → 201 `{ "data": { user }, "token": "<plain-text-token>" }`
 
@@ -103,11 +103,11 @@ body: `current_password`, `password`, `password_confirmation` → 204
 
 ## パスワードリセット（R3 追加）
 
-### POST /api/forgot-password  （`throttle:6,1`）
+### POST /api/forgot-password  （`throttle:password-reset` = IP で 6回/分）
 body: `email` → 常に 200 `{ "message": "..." }`（アカウント存在を漏らさない）。
-存在すれば `ResetPasswordMail` を dispatch（リンクは frontend の `/reset-password?token=..&email=..`）。
+存在すれば `SendPasswordResetJob` を dispatch し、キューで `ResetPasswordMail` を送る（リンクは frontend の `/reset-password?token=..&email=..`）。
 
-### POST /api/reset-password  （`throttle:6,1`）
+### POST /api/reset-password  （`throttle:password-reset`）
 body: `token`, `email`, `password`, `password_confirmation`
 → 200 / 失敗 422（`token` 無効・期限切れ含む）。成功で全既存トークンを失効させるかは任意（R3 は失効させない＝シンプル優先）。
 
@@ -125,7 +125,7 @@ body: `recipient_name`, `postal_code`, `prefecture`, `city`, `address_line1`, `a
 
 ## 注文（要認証）
 
-### POST /api/orders  （要認証。メール認証は不要 — ポートフォリオ用途のため誰でも購入体験できるようにしている）
+### POST /api/orders  （要認証。`throttle:orders` = ユーザーごとに 5回/分。メール認証は不要 — ポートフォリオ用途のため誰でも購入体験できるようにしている）
 ```json
 { "items": [ { "variant_id": 55, "quantity": 2 } ],
   "address_id": 3, "address": null, "save_address": false }
@@ -170,22 +170,24 @@ body: `{ "order_number": "EC-20260907-0001" }`
 - `PUT /api/admin/orders/{number}/status` … state machine 対応（`docs/02`）。不正遷移 422。`paid → cancelled` は Stripe 返金を伴う
 - `GET /api/admin/content` / `PUT /api/admin/content/{key}` … CMS
 - `POST /api/admin/content/{key}/images` … CMS 用画像アップロード（`content/{key}/{ulid}.ext`）
-- `GET /api/admin/stats` … `revenue_total`（`paid` 以降の `total` 合計）を復活
-- `GET /api/admin/sales` … **R4 追加**。売上ダッシュボード（KPI / 日別・月別 / カテゴリ別ランキング）。仕様は `docs/05-admin.md`
+- `GET /api/admin/stats` … 運用ダッシュボード。未発送・受け取り待ち・在庫わずか・売り切れの件数と、未発送の注文（R4 2026-10-17 変更。売上合計はやめた）
+- `GET /api/admin/sales` … **R4 追加**。売上ダッシュボード（KPI / 日別・月別 / カテゴリ別ランキング。`?month=` でランキングの月を選ぶ）。仕様は `docs/05-admin.md`
 
 ## Next.js 側の Route Handler（BFF）
 
 | ブラウザ向け | 内部で呼ぶ Laravel |
 |---|---|
 | `POST /bff/login` `register` `logout` | `/api/login` 等。token を httpOnly Cookie に |
-| `GET /bff/me` | `/api/me` |
+| `GET/PUT /bff/me`、`PUT /bff/me/password` | `/api/me`、`/api/me/password` |
 | `POST /bff/forgot-password` `reset-password` | 同名 |
-| `GET/POST/PUT/DELETE /bff/addresses...` | `/api/addresses...` |
-| `POST/GET /bff/orders` `GET /bff/orders/{number}` | `/api/orders...` |
-| `POST /bff/checkout/payment-intent` | `/api/checkout/payment-intent` |
+| `POST /bff/addresses`、`PUT/DELETE /bff/addresses/{id}`、`POST /bff/addresses/{id}/default` | `/api/addresses...` |
+| `POST /bff/orders`、`GET /bff/orders/{number}`（完了画面のポーリング専用） | `/api/orders...` |
 | `GET /bff/cart/validate` | `/api/cart/validate` |
 | 商品・カテゴリ・CMS 読み取り | Server Component から直接 `fetch(API_URL + ...)`（Cookie 不要、ISR タグ付き） |
-| `/bff/admin/*` | 管理 API 中継。更新系は成功後に `revalidateTag()` |
+| 個人のデータの読み取り（マイページ・住所録・注文・決済ページ・管理画面） | Server Component が Cookie のトークンで直接呼ぶ（`no-store`）。BFF は通さない |
+| `/bff/admin/*` | 管理 API の更新系の中継。成功後に `revalidateTag()` |
+
+PaymentIntent の作成（`/api/checkout/payment-intent`）は、決済ページの Server Component がサーバー側で呼ぶので BFF ルートは無い。
 
 **Stripe Webhook は BFF を通さない。** Stripe → `https://<backend 公開 path>/api/stripe/webhook` へ直接（`docs/04`）。
 
